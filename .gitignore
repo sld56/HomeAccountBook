@@ -1,0 +1,24 @@
+node_modules
+dist
+dist-ssr
+.DS_Store
+.env
+.env.local
+.env.*.local
+*.log
+.vscode/*
+!.vscode/extensions.json
+.idea/workspace.xml
+coverage
+
+# Claude Code local settings — 절대 커밋 금지
+.claude/
+
+# 빌드 부산물·임시
+*.tsbuildinfo
+.cache/
+
+# OS / 편집기
+Thumbs.db
+*.swp
+*~

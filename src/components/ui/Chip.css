@@ -1,0 +1,47 @@
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  line-height: 1.2;
+  background: var(--bg-2);
+  color: var(--ink-2);
+  border: 1px solid transparent;
+  cursor: default;
+  white-space: nowrap;
+}
+button.chip {
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.chip.is-active {
+  background: var(--ink);
+  color: #fff;
+}
+.chip-sage {
+  background: var(--sage-soft);
+  color: var(--sage-2);
+}
+.chip-coral {
+  background: var(--coral-soft);
+  color: var(--coral-2);
+}
+.chip-rose {
+  background: var(--rose-soft);
+  color: var(--rose);
+}
+.chip-amber {
+  background: var(--amber-soft);
+  color: var(--ink);
+}
+.chip-sky {
+  background: var(--sky-soft);
+  color: var(--sky);
+}
+.chip-lavender {
+  background: var(--lavender-soft);
+  color: var(--lavender);
+}

@@ -1,0 +1,28 @@
+.card {
+  background: var(--surface);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border);
+  padding: 22px 24px;
+}
+.card-lg {
+  padding: 28px 30px;
+  border-radius: var(--r-xl);
+}
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--gap-3);
+  margin-bottom: var(--gap-3);
+}
+.card-title {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  color: var(--ink);
+}
+.card-subtitle {
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+  margin-top: 4px;
+}

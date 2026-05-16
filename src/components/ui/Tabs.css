@@ -1,0 +1,23 @@
+.tabs {
+  display: inline-flex;
+  padding: 4px;
+  background: var(--bg-2);
+  border-radius: var(--r);
+  gap: 2px;
+}
+.tabs-trigger {
+  padding: 8px 18px;
+  border-radius: 10px;
+  color: var(--ink-2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  transition: background 0.15s, color 0.15s;
+}
+.tabs-trigger:hover {
+  color: var(--ink);
+}
+.tabs-trigger.is-active {
+  background: var(--surface);
+  color: var(--coral-2);
+  box-shadow: var(--shadow-sm);
+}

@@ -1,0 +1,20 @@
+.bar {
+  width: 100%;
+  background: var(--bg-2);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.bar-thin {
+  height: 6px;
+}
+.bar-default {
+  height: 10px;
+}
+.bar-thick {
+  height: 14px;
+}
+.bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}

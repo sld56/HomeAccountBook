@@ -1,0 +1,45 @@
+.chart-tooltip {
+  position: absolute;
+  pointer-events: none;
+  z-index: 10;
+}
+.chart-tooltip-body {
+  background: var(--ink);
+  color: #fff;
+  padding: 10px 14px;
+  border-radius: 12px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+  font-size: var(--fs-sm);
+  min-width: 100px;
+  white-space: nowrap;
+}
+.chart-tooltip-top {
+  transform: translate(-50%, calc(-100% - 8px));
+}
+.chart-tooltip-top .chart-tooltip-body::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  border: 6px solid transparent;
+  border-top-color: var(--ink);
+  transform: translateX(-50%);
+}
+.chart-tooltip-bottom {
+  transform: translate(-50%, 12px);
+}
+.chart-tooltip-bottom .chart-tooltip-body::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: -6px;
+  border: 6px solid transparent;
+  border-bottom-color: var(--ink);
+  transform: translateX(-50%);
+}
+.chart-tooltip-x-right {
+  transform: translate(calc(-100% + 20px), calc(-100% - 8px));
+}
+.chart-tooltip-x-left {
+  transform: translate(-20px, calc(-100% - 8px));
+}

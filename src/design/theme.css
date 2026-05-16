@@ -1,0 +1,118 @@
+/* 우리집 가계부 — 디자인 토큰 (02-디자인-가이드.md 정본) */
+
+:root {
+  /* 배경 / 표면 / 텍스트 */
+  --bg: #faf6ef;
+  --bg-2: #f4ecdd;
+  --surface: #ffffff;
+  --surface-2: #fbf7f0;
+  --border: #eee3d0;
+  --border-2: #e2d5bc;
+  --ink: #2a2521;
+  --ink-2: #6f665b;
+  --ink-3: #9a8f82;
+
+  /* 브랜드 / 시맨틱 */
+  --coral: #e5765e;
+  --coral-2: #d45f45;
+  --coral-soft: #fce4da;
+
+  --sage: #7fa274;
+  --sage-2: #5f8657;
+  --sage-soft: #e4eedc;
+
+  --rose: #c25a5a;
+  --rose-soft: #f5dcdc;
+
+  --amber: #d4a656;
+  --amber-soft: #f8ebce;
+
+  --sky: #6e94c0;
+  --sky-soft: #dde7f3;
+
+  --lavender: #9b8ac2;
+  --lavender-soft: #e7dff2;
+
+  /* 카테고리 컬러 */
+  --cat-food: #e5765e;
+  --cat-transport: #6e94c0;
+  --cat-medical: #c25a5a;
+  --cat-utility: #d4a656;
+  --cat-leisure: #9b8ac2;
+  --cat-shopping: #e5908a;
+  --cat-edu: #7fa274;
+  --cat-other: #b0a698;
+
+  /* 가족 멤버 컬러 */
+  --member-appa: #6e94c0;
+  --member-eomma: #e5765e;
+  --member-deahyun: #7fa274;
+  --member-jiwon: #d4a656;
+  --member-all: #9b8ac2;
+
+  /* 폰트 */
+  --font:
+    'Pretendard', 'Pretendard Variable', -apple-system, BlinkMacSystemFont, system-ui,
+    'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+
+  /* 타이포 스케일 */
+  --fs-xs: 13px;
+  --fs-sm: 14px;
+  --fs-base: 17px;
+  --fs-lg: 19px;
+  --fs-xl: 22px;
+  --fs-2xl: 28px;
+  --fs-3xl: 36px;
+  --fs-4xl: 48px;
+  --fs-hero: 64px;
+
+  /* 간격 */
+  --gap-1: 6px;
+  --gap-2: 10px;
+  --gap-3: 16px;
+  --gap-4: 24px;
+  --gap-5: 36px;
+  --gap-6: 56px;
+
+  /* Radius */
+  --r-sm: 10px;
+  --r: 14px;
+  --r-lg: 20px;
+  --r-xl: 28px;
+
+  /* Shadow */
+  --shadow-sm: 0 1px 2px rgba(50, 35, 20, 0.04), 0 2px 6px rgba(50, 35, 20, 0.04);
+  --shadow: 0 2px 6px rgba(50, 35, 20, 0.05), 0 8px 24px rgba(50, 35, 20, 0.06);
+  --shadow-lg: 0 4px 12px rgba(50, 35, 20, 0.06), 0 18px 40px rgba(50, 35, 20, 0.1);
+}
+
+/* 고대비 모드 */
+.hi-contrast {
+  --ink: #110e0a;
+  --ink-2: #3a342d;
+  --ink-3: #5a5249;
+  --border: #c8b894;
+  --border-2: #a89572;
+}
+
+/* 팔레트 옵션 (Tweaks) */
+[data-palette='deeper'] {
+  --coral: #d45f45;
+  --sage: #5f8657;
+  --sky: #3e6593;
+}
+[data-palette='cool'] {
+  --coral: #9b8ac2;
+  --sage: #7fa274;
+  --sky: #d4a656;
+}
+[data-palette='energetic'] {
+  --coral: #c25a5a;
+  --sage: #d4a656;
+  --sky: #6e94c0;
+}
+[data-palette='earthy'] {
+  --coral: #5f8657;
+  --sage: #e5765e;
+  --sky: #9b8ac2;
+}
