@@ -1,0 +1,24 @@
+# 줄바꿈 정규화 — Deno/Linux 컨테이너에서 실행되는 코드는 항상 LF
+# Windows ↔ WSL ↔ Docker 간 줄바꿈 불일치 방지
+
+* text=auto eol=lf
+
+# 명시: 셸·코드는 무조건 LF
+*.sh    text eol=lf
+*.ts    text eol=lf
+*.tsx   text eol=lf
+*.js    text eol=lf
+*.mjs   text eol=lf
+*.cjs   text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.sql   text eol=lf
+*.conf  text eol=lf
+*.json  text eol=lf
+Dockerfile* text eol=lf
+*.env*  text eol=lf
+
+# 바이너리는 변환 금지
+*.png   binary
+*.jpg   binary
+*.pdf   binary
