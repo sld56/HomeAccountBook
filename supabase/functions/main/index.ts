@@ -1,39 +1,60 @@
-// Edge Runtime main service — 라우팅 디스패처
-// supabase/edge-runtime 컨테이너가 이 main 파일을 실행하여 개별 함수를 분기
+// Edge Runtime 메인 디스패처
+// supabase/edge-runtime 컨테이너가 이 main을 실행하고, 들어오는 요청을
+// 경로에서 추출한 함수 이름으로 라우팅해 EdgeRuntime.userWorkers로 위임.
+//
+// 참고: https://supabase.com/docs/guides/functions/development#self-hosting
 
-import { STATUS_TEXT } from 'jsr:@std/http/status';
+console.log('main edge function started');
 
-const SERVICE_ROUTES: Record<string, string> = {
-  '/create-invite': '../create-invite/index.ts',
-  '/accept-invite': '../accept-invite/index.ts',
-  '/create-household': '../create-household/index.ts',
-  '/remove-member': '../remove-member/index.ts',
-  '/import-local': '../import-local/index.ts',
-  '/delete-account': '../delete-account/index.ts',
+declare const EdgeRuntime: {
+  userWorkers: {
+    create(options: {
+      servicePath: string;
+      memoryLimitMb?: number;
+      workerTimeoutMs?: number;
+      noModuleCache?: boolean;
+      importMapPath?: string | null;
+      envVars?: [string, string][];
+    }): Promise<{ fetch(req: Request, init?: { signal?: AbortSignal }): Promise<Response> }>;
+  };
 };
 
-Deno.serve(async (req) => {
+Deno.serve(async (req: Request) => {
   const url = new URL(req.url);
   const pathname = url.pathname;
+  const parts = pathname.split('/').filter((p) => p);
+  // kong이 /functions/v1/ 접두어를 strip하므로 parts[0]가 함수 이름
+  const service_name = parts[0];
 
-  // 함수 이름 추출 (예: /functions/v1/create-invite → /create-invite)
-  const fnPath = '/' + pathname.split('/').filter(Boolean).pop();
-  const modulePath = SERVICE_ROUTES[fnPath];
-
-  if (!modulePath) {
-    return new Response(JSON.stringify({ error: `function not found: ${fnPath}` }), {
-      status: 404,
-      headers: { 'Content-Type': 'application/json' },
-    });
+  if (!service_name) {
+    return new Response(
+      JSON.stringify({ error: 'missing function name in request path' }),
+      { status: 400, headers: { 'Content-Type': 'application/json' } },
+    );
   }
 
+  const servicePath = `/home/deno/functions/${service_name}`;
+
   try {
-    const mod = await import(modulePath);
-    // 각 함수는 Deno.serve를 호출하므로, 핸들러를 직접 노출하도록 변경 필요할 수 있음
-    // (현재 구현은 Deno.serve 직접 호출 → 메인에서 import만으로 동작)
-    return new Response('OK', { status: 200 });
+    const envVarsObj = Deno.env.toObject();
+    const envVars: [string, string][] = Object.keys(envVarsObj).map((k) => [k, envVarsObj[k]]);
+
+    const worker = await EdgeRuntime.userWorkers.create({
+      servicePath,
+      memoryLimitMb: 150,
+      workerTimeoutMs: 5 * 60 * 1000,
+      noModuleCache: false,
+      importMapPath: null,
+      envVars,
+    });
+
+    return await worker.fetch(req);
   } catch (e) {
-    console.error(e);
-    return new Response(STATUS_TEXT[500], { status: 500 });
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error(`worker failed for ${servicePath}:`, msg);
+    return new Response(
+      JSON.stringify({ error: msg, service: service_name }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } },
+    );
   }
 });
