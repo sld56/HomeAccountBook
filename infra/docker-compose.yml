@@ -166,7 +166,9 @@ services:
       - "127.0.0.1:8000:8000"   # cloudflared가 이쪽으로 프록시
 
   studio:
-    image: supabase/studio:20240916-0bd2c34
+    # Supabase가 날짜 태그를 종종 회수해 latest로 고정.
+    # 운영용 DB 관리 UI라 latest로 충분 (데이터는 postgres 볼륨이 별도)
+    image: supabase/studio:latest
     restart: unless-stopped
     depends_on:
       kong: { condition: service_started }
