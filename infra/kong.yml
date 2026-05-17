@@ -1,19 +1,15 @@
 _format_version: "2.1"
 _transform: true
 
-consumers:
-  - username: anon
-    keyauth_credentials:
-      - key: ${ANON_KEY}
-  - username: service_role
-    keyauth_credentials:
-      - key: ${SERVICE_ROLE_KEY}
-
-acls:
-  - consumer: anon
-    group: anon
-  - consumer: service_role
-    group: admin
+# Kong은 단순 라우팅 + CORS만 담당.
+# 인증/권한은 모두 다운스트림 서비스가 처리:
+#   - PostgREST: JWT 검증 + Postgres RLS
+#   - gotrue: 자체 세션 관리
+#   - edge-functions: getCurrentUser 등으로 JWT 검증
+#   - realtime: JWT 검증
+#
+# kong.yml에서 ${VAR} 형태의 env 치환을 Kong 2.x 선언형 설정이 지원하지 않아
+# 이전 key-auth/acl 플러그인은 동작 불가 → 모두 제거.
 
 services:
   - name: auth-v1
@@ -35,15 +31,6 @@ services:
           - /rest/v1/
     plugins:
       - name: cors
-      - name: key-auth
-        config:
-          hide_credentials: false
-      - name: acl
-        config:
-          hide_groups_header: true
-          allow:
-            - admin
-            - anon
 
   - name: realtime-v1
     url: http://realtime:4000/socket/
@@ -54,15 +41,6 @@ services:
           - /realtime/v1/
     plugins:
       - name: cors
-      - name: key-auth
-        config:
-          hide_credentials: false
-      - name: acl
-        config:
-          hide_groups_header: true
-          allow:
-            - admin
-            - anon
 
   - name: functions-v1
     url: http://edge-functions:9000/
@@ -82,11 +60,4 @@ services:
         paths:
           - /pg/
     plugins:
-      - name: key-auth
-        config:
-          hide_credentials: false
-      - name: acl
-        config:
-          hide_groups_header: true
-          allow:
-            - admin
+      - name: cors
