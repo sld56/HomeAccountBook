@@ -162,16 +162,26 @@ nano .env   # 또는 code .env (VS Code Remote-WSL 설치되어 있으면)
 - gen-keys 출력의 JWT/POSTGRES/REALTIME/ANON/SERVICE 키 그대로
 - SMTP 항목은 §5에서 채움
 
+> 💡 **이 단계에서 GitHub Secrets도 함께 등록**해두세요. GitHub 저장소 → Settings → Secrets and variables → Actions에 `VITE_SUPABASE_URL`(SITE_URL과 동일)과 `VITE_SUPABASE_ANON_KEY`(ANON_KEY와 동일). [CI-IMAGES.md §A](CI-IMAGES.md#a-github-secrets-등록-3분) 참조.
+
 ---
 
-## 4. Docker Compose 기동 (10분)
+## 4. Docker 이미지 받기 + 기동 (5분)
 
-WSL 또는 PowerShell 둘 다 가능 (Docker Desktop이 양쪽 모두 라우팅).
+**클라이언트 이미지는 GitHub Actions가 미리 빌드해뒀습니다.** 미니 PC는 그냥 pull만 받으면 됩니다.
 
+### 4.0 ghcr.io 로그인 (한 번만)
+[CI-IMAGES.md §C](CI-IMAGES.md#c-미니-pc에서-ghcrio-로그인-1회만) 따라 GitHub PAT(`read:packages` 권한) 발급 후:
+```bash
+echo "<PAT>" | docker login ghcr.io -u sld56 --password-stdin
+```
+
+### 4.1 컨테이너 기동
+WSL 또는 PowerShell 둘 다 가능:
 ```bash
 cd ~/gagyebu/infra
-docker compose up -d --build
-# 첫 빌드는 5~10분
+docker compose up -d
+# Supabase 이미지 + ghcr.io의 web 이미지 모두 pull → 첫 기동 2~3분
 
 docker compose ps   # web, postgres, gotrue, postgrest, realtime, edge-functions, kong, studio, meta 모두 healthy
 ```
@@ -180,8 +190,13 @@ PowerShell에서 했다면 경로:
 ```powershell
 wsl
 cd ~/gagyebu/infra
-# 또는 Windows 쪽에 클론했다면:
-cd C:\path\to\gagyebu\infra
+```
+
+### 업데이트 받기 (코드 변경 후)
+```bash
+docker compose pull
+docker compose up -d
+# 1분 안에 새 버전 배포 완료
 ```
 
 ### DB 마이그레이션

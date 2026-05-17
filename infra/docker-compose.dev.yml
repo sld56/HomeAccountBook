@@ -1,0 +1,17 @@
+# 로컬 빌드 override — ghcr.io에 push 안 하고 본인 PC에서 직접 빌드해 테스트할 때
+#
+# 사용:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+#
+# 평상시(미니 PC 운영)에는 이 파일을 쓰지 않습니다. docker-compose.yml만 사용.
+
+services:
+  web:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        VITE_SUPABASE_URL: ${SITE_URL}
+        VITE_SUPABASE_ANON_KEY: ${ANON_KEY}
+    image: homeaccountbook-web:dev
+    pull_policy: never

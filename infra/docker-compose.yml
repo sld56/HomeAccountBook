@@ -6,13 +6,11 @@ name: gagyebu
 
 services:
   web:
-    build:
-      context: ..
-      dockerfile: Dockerfile
-      args:
-        VITE_SUPABASE_URL: ${SITE_URL}
-        VITE_SUPABASE_ANON_KEY: ${ANON_KEY}
+    # 기본 동작: GitHub Actions가 빌드해 ghcr.io에 올린 이미지를 그대로 pull.
+    # 로컬에서 직접 빌드하려면 `docker compose -f docker-compose.yml -f docker-compose.dev.yml up`로 override.
+    image: ${WEB_IMAGE:-ghcr.io/sld56/homeaccountbook-web:latest}
     restart: unless-stopped
+    pull_policy: always
     depends_on:
       kong: { condition: service_started }
     ports:
