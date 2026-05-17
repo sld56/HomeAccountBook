@@ -36,39 +36,14 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXP: 3600
     volumes:
-      # /docker-entrypoint-initdb.d 마운트하지 않음 (이미지 내장 스크립트가 무력화됨).
-      # 시스템 역할 비밀번호 설정은 별도 sidecar 서비스(postgres-init)가 담당.
+      # 비밀번호 설정 스크립트만 init-scripts/ 서브디렉토리에 추가 마운트.
+      # init-scripts/ 안의 다른 supabase 내장 스크립트들이 역할을 먼저 만들고,
+      # 우리 99-* 스크립트가 알파벳 순으로 마지막에 실행되어 비밀번호를 할당.
+      # supautils protection이 활성화되기 전이라 ALTER USER 가능.
+      - ./db-init/99-set-roles-passwords.sh:/docker-entrypoint-initdb.d/init-scripts/99-set-roles-passwords.sh:ro
       - postgres-data:/var/lib/postgresql/data
     ports:
       - "127.0.0.1:5432:5432"  # LAN/Tailscale에서만 접근 (외부 노출 X)
-
-  # 시스템 역할 비밀번호 설정 sidecar — 한 번 실행 후 종료.
-  # Supabase 이미지의 내장 init이 역할만 만들고 비밀번호는 비워두므로 이 단계가 필요.
-  postgres-init:
-    image: supabase/postgres:15.1.1.78
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      PGPASSWORD: ${POSTGRES_PASSWORD}
-    entrypoint: ["sh", "-c"]
-    command: |
-      set -e
-      echo "=== 시스템 역할 등장 대기 ==="
-      until psql -h postgres -U postgres -tAc "SELECT 1 FROM pg_roles WHERE rolname='supabase_auth_admin'" 2>/dev/null | grep -q 1; do
-        echo "  ... supabase_auth_admin 역할이 아직 없음, 2초 후 재시도"
-        sleep 2
-      done
-      echo "=== 비밀번호 설정 시작 ==="
-      for role in authenticator supabase_admin supabase_auth_admin supabase_storage_admin supabase_replication_admin supabase_read_only_user supabase_functions_admin pgbouncer; do
-        if psql -h postgres -U postgres -d postgres -c "ALTER USER \"$$role\" WITH PASSWORD '$$PGPASSWORD'" 2>/dev/null; then
-          echo "  ✓ $$role"
-        else
-          echo "  - 없음(skip): $$role"
-        fi
-      done
-      echo "=== 완료 ==="
-    restart: "no"
 
   gotrue:
     image: supabase/gotrue:v2.158.1
@@ -76,8 +51,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      postgres-init:
-        condition: service_completed_successfully
     environment:
       GOTRUE_API_HOST: 0.0.0.0
       GOTRUE_API_PORT: 9999
@@ -121,8 +94,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      postgres-init:
-        condition: service_completed_successfully
     environment:
       PGRST_DB_URI: postgres://authenticator:${POSTGRES_PASSWORD}@postgres:5432/postgres
       PGRST_DB_SCHEMAS: public,storage,graphql_public
@@ -138,8 +109,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      postgres-init:
-        condition: service_completed_successfully
     environment:
       PORT: 4000
       DB_HOST: postgres
@@ -164,8 +133,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      postgres-init:
-        condition: service_completed_successfully
     volumes:
       - ../supabase/functions:/home/deno/functions:Z
     environment:
@@ -228,8 +195,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      postgres-init:
-        condition: service_completed_successfully
     environment:
       PG_META_PORT: 8080
       PG_META_DB_HOST: postgres
