@@ -1,8 +1,8 @@
 import { CATEGORIES } from '@/data/categories';
-import { ACCOUNTS_BY_ID } from '@/data/accounts';
 import { MEMBERS_BY_ID } from '@/data/members';
 import { fmt } from '@/lib/format';
 import { useSettings } from '@/stores/settingsStore';
+import { useAccounts } from '@/stores/accountStore';
 import type { Transaction } from '@/types/domain';
 import { CategoryIcon } from './CategoryIcon';
 import { Chip } from '@/components/ui/Chip';
@@ -15,8 +15,9 @@ type Props = {
 
 export function TransactionRow({ tx, onClick }: Props) {
   const currency = useSettings((s) => s.currencyMode);
+  const accounts = useAccounts((s) => s.accounts);
   const cat = CATEGORIES[tx.cat];
-  const account = ACCOUNTS_BY_ID[tx.account];
+  const account = accounts.find((a) => a.id === tx.account);
   const member = MEMBERS_BY_ID[tx.member];
   return (
     <button type="button" className="tx-row" onClick={onClick}>

@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Avatar } from '@/components/ui/Avatar';
 import { FamilySection } from './FamilySection';
+import { AccountsSection } from './AccountsSection';
 import { isServerConfigured } from '@/lib/supabase';
 import type { CurrencyMode, FontSizeMode, Member, MemberColorKey } from '@/types/domain';
 
@@ -110,6 +111,8 @@ export function SettingsPage() {
             ))}
           </div>
         </Card>
+
+        <AccountsSection />
 
         {isServerConfigured && <FamilySection />}
 

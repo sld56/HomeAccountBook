@@ -7,7 +7,7 @@ import {
   EXPENSE_CATEGORIES,
   INCOME_CATEGORIES,
 } from '@/data/categories';
-import { ACCOUNTS } from '@/data/accounts';
+import { useAccounts } from '@/stores/accountStore';
 import { useMembers } from '@/stores/memberStore';
 import { useTransactions } from '@/stores/transactionStore';
 import { transactionSchema } from './TransactionSchema';
@@ -32,13 +32,14 @@ export function TransactionForm({ open, onClose, initial }: Props) {
   const update = useTransactions((s) => s.update);
   const remove = useTransactions((s) => s.remove);
 
+  const accounts = useAccounts((s) => s.accounts);
   const [kind, setKind] = useState<TransactionKind>(initial?.kind ?? 'out');
   const [amount, setAmount] = useState<string>(initial ? String(initial.amount) : '');
   const [cat, setCat] = useState<CategoryId | ''>(initial?.cat ?? '');
   const [title, setTitle] = useState(initial?.title ?? '');
   const [memo, setMemo] = useState(initial?.memo ?? '');
   const [member, setMember] = useState(initial?.member ?? members[0]?.id ?? '');
-  const [account, setAccount] = useState(initial?.account ?? ACCOUNTS[0]?.id ?? '');
+  const [account, setAccount] = useState(initial?.account ?? accounts[0]?.id ?? '');
   const [date, setDate] = useState(initial?.date ?? todayStr());
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -55,13 +56,13 @@ export function TransactionForm({ open, onClose, initial }: Props) {
         setTitle(d.title ?? '');
         setMemo(d.memo ?? '');
         setMember(d.member ?? members[0]?.id ?? '');
-        setAccount(d.account ?? ACCOUNTS[0]?.id ?? '');
+        setAccount(d.account ?? accounts[0]?.id ?? '');
         setDate(d.date ?? todayStr());
       }
     } catch {
       /* ignore */
     }
-  }, [open, initial, members]);
+  }, [open, initial, members, accounts]);
 
   // Draft 자동 저장
   useEffect(() => {
@@ -257,7 +258,7 @@ export function TransactionForm({ open, onClose, initial }: Props) {
               value={account}
               onChange={(e) => setAccount(e.target.value)}
             >
-              {ACCOUNTS.map((a) => (
+              {accounts.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.label}
                 </option>

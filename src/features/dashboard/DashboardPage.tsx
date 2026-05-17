@@ -2,13 +2,13 @@ import { useMemo, useState } from 'react';
 import { useTransactions } from '@/stores/transactionStore';
 import { useMembers } from '@/stores/memberStore';
 import { useSettings } from '@/stores/settingsStore';
+import { useAccounts } from '@/stores/accountStore';
+import { useBudgets } from '@/stores/budgetStore';
+import { useGoals } from '@/stores/goalStore';
+import { useUpcoming } from '@/stores/upcomingStore';
 import { filterByMember, monthSummary, byCategory } from '@/lib/stats';
 import { fmt } from '@/lib/format';
 import { MONTHLY } from '@/data/monthly';
-import { TOTAL_BUDGET } from '@/data/budgets';
-import { GOALS } from '@/data/goals';
-import { UPCOMING } from '@/data/upcoming';
-import { ACCOUNTS } from '@/data/accounts';
 import { CATEGORIES } from '@/data/categories';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -45,8 +45,12 @@ function pctDelta(curr: number, prev: number): number {
 function CardGridVariant() {
   const currency = useSettings((s) => s.currencyMode);
   const { monthTxs, summary, cats } = useMonthData();
+  const accounts = useAccounts((s) => s.accounts);
+  const upcoming = useUpcoming((s) => s.upcoming);
+  const budgets = useBudgets((s) => s.budgets);
+  const totalBudget = useMemo(() => budgets.reduce((acc, b) => acc + b.limit, 0), [budgets]);
   const usedBudget = summary.expense;
-  const budgetRatio = TOTAL_BUDGET > 0 ? (usedBudget / TOTAL_BUDGET) * 100 : 0;
+  const budgetRatio = totalBudget > 0 ? (usedBudget / totalBudget) * 100 : 0;
 
   const recent = [...monthTxs].sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 5);
   const monthlyData = MONTHLY.slice(-6).map((m) => ({
@@ -84,7 +88,7 @@ function CardGridVariant() {
         />
         <KpiCard
           eyebrow="남은 예산"
-          value={fmt.money(Math.max(0, TOTAL_BUDGET - usedBudget), currency)}
+          value={fmt.money(Math.max(0, totalBudget - usedBudget), currency)}
           icon="🎯"
           accent="var(--amber-soft)"
           trend={{
@@ -135,7 +139,7 @@ function CardGridVariant() {
         <Card>
           <h3 className="section-title">다가오는 결제</h3>
           <div className="stack" style={{ gap: 10 }}>
-            {UPCOMING.map((u) => {
+            {upcoming.map((u) => {
               const cat = CATEGORIES[u.cat];
               return (
                 <div key={u.id} className="between">
@@ -172,7 +176,7 @@ function CardGridVariant() {
         <Card>
           <h3 className="section-title">계좌 잔액</h3>
           <div className="stack" style={{ gap: 10 }}>
-            {ACCOUNTS.map((a) => (
+            {accounts.map((a) => (
               <div key={a.id} className="between">
                 <div>
                   <div style={{ fontWeight: 600 }}>{a.label}</div>
@@ -199,8 +203,10 @@ function CardGridVariant() {
 function BigNumberVariant() {
   const currency = useSettings((s) => s.currencyMode);
   const { summary, cats } = useMonthData();
-  const remaining = Math.max(0, TOTAL_BUDGET - summary.expense);
-  const usedRatio = TOTAL_BUDGET > 0 ? (summary.expense / TOTAL_BUDGET) * 100 : 0;
+  const budgets = useBudgets((s) => s.budgets);
+  const totalBudget = useMemo(() => budgets.reduce((acc, b) => acc + b.limit, 0), [budgets]);
+  const remaining = Math.max(0, totalBudget - summary.expense);
+  const usedRatio = totalBudget > 0 ? (summary.expense / totalBudget) * 100 : 0;
   const monthlyData = MONTHLY.slice(-6).map((m) => ({
     ym: m.ym,
     income: m.income,
@@ -239,9 +245,9 @@ function BigNumberVariant() {
           </span>
         </div>
         <div style={{ marginTop: 20 }}>
-          <ProgressBar value={summary.expense} max={TOTAL_BUDGET} thickness="thick" />
+          <ProgressBar value={summary.expense} max={totalBudget} thickness="thick" />
           <div className="meta num" style={{ marginTop: 6 }}>
-            예산 {fmt.percent(usedRatio, 0)} 사용 · 총 {fmt.money(TOTAL_BUDGET, currency)}
+            예산 {fmt.percent(usedRatio, 0)} 사용 · 총 {fmt.money(totalBudget, currency)}
           </div>
         </div>
       </Card>
@@ -294,6 +300,8 @@ function FamilyVariant() {
   const members = useMembers((s) => s.members);
   const selectedMember = useMembers((s) => s.selectedMember);
   const transactions = useTransactions((s) => s.transactions);
+  const goals = useGoals((s) => s.goals);
+  const upcoming = useUpcoming((s) => s.upcoming);
   const monthTxs = transactions.filter((t) => t.date.startsWith(CURRENT_YM));
   const visibleMembers =
     selectedMember === 'all' ? members : members.filter((m) => m.id === selectedMember);
@@ -345,7 +353,7 @@ function FamilyVariant() {
         <Card>
           <h3 className="section-title">저축 목표</h3>
           <div className="stack" style={{ gap: 14 }}>
-            {GOALS.map((g) => (
+            {goals.map((g) => (
               <div key={g.id}>
                 <div className="between" style={{ marginBottom: 4 }}>
                   <span style={{ fontWeight: 600 }}>{g.title}</span>
@@ -364,7 +372,7 @@ function FamilyVariant() {
         <Card>
           <h3 className="section-title">다가오는 결제</h3>
           <div className="stack" style={{ gap: 10 }}>
-            {UPCOMING.map((u) => (
+            {upcoming.map((u) => (
               <div key={u.id} className="between">
                 <div>
                   <div style={{ fontWeight: 600 }}>{u.label}</div>
