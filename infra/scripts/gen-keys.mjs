@@ -27,8 +27,10 @@ function sign(payload, secret) {
 // 1. JWT_SECRET — 32 bytes hex (= 64 chars)
 const jwtSecret = process.env.JWT_SECRET || randomBytes(32).toString('hex');
 
-// 2. Postgres password
-const pgPassword = process.env.POSTGRES_PASSWORD || randomBytes(24).toString('base64');
+// 2. Postgres password — hex로 생성해 URL-safe 보장 (+/= 같은 특수문자 없음)
+// 이전: base64 사용 → +/= 가 GOTRUE_DB_DATABASE_URL의 password 부분에서
+// URL 파싱을 깨뜨려 gotrue 패닉 (URL.Query() nil pointer)
+const pgPassword = process.env.POSTGRES_PASSWORD || randomBytes(24).toString('hex');
 
 // 3. Realtime secret
 const realtimeSecret = process.env.REALTIME_SECRET || randomBytes(32).toString('hex');
