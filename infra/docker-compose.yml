@@ -36,7 +36,9 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXP: 3600
     volumes:
-      - ./volumes/db/init:/docker-entrypoint-initdb.d
+      # /docker-entrypoint-initdb.d 마운트 금지!
+      # supabase/postgres 이미지에 supabase_admin, anon, authenticated 역할 생성과
+      # auth 스키마 셋업 스크립트가 내장돼 있으므로 덮어쓰면 안 됨.
       - postgres-data:/var/lib/postgresql/data
     ports:
       - "127.0.0.1:5432:5432"  # LAN/Tailscale에서만 접근 (외부 노출 X)
