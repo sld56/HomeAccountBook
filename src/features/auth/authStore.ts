@@ -12,6 +12,7 @@ type Membership = {
 
 type State = {
   loading: boolean;
+  membershipChecked: boolean;
   user: User | null;
   session: Session | null;
   household_id: string | null;
@@ -23,6 +24,7 @@ type State = {
 
 export const useAuth = create<State>((set, get) => ({
   loading: true,
+  membershipChecked: false,
   user: null,
   session: null,
   household_id: null,
@@ -31,18 +33,23 @@ export const useAuth = create<State>((set, get) => ({
   init: async () => {
     const { data } = await supabase.auth.getSession();
     set({ session: data.session, user: data.session?.user ?? null });
-    supabase.auth.onAuthStateChange((_event, session) => {
+
+    supabase.auth.onAuthStateChange(async (_event, session) => {
       set({ session, user: session?.user ?? null });
       if (session?.user) {
-        get().refreshMembership();
+        // 새 로그인/세션 변경 — 멤버십 다시 조회 (await로 race 방지)
+        set({ membershipChecked: false });
+        await get().refreshMembership();
+        set({ membershipChecked: true });
       } else {
-        set({ household_id: null, membership: null });
+        set({ household_id: null, membership: null, membershipChecked: true });
       }
     });
+
     if (data.session?.user) {
       await get().refreshMembership();
     }
-    set({ loading: false });
+    set({ loading: false, membershipChecked: true });
   },
 
   refreshMembership: async () => {
@@ -70,6 +77,12 @@ export const useAuth = create<State>((set, get) => ({
 
   signOut: async () => {
     await supabase.auth.signOut();
-    set({ user: null, session: null, household_id: null, membership: null });
+    set({
+      user: null,
+      session: null,
+      household_id: null,
+      membership: null,
+      membershipChecked: true,
+    });
   },
 }));
