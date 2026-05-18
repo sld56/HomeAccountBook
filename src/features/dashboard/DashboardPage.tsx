@@ -22,18 +22,17 @@ import { MonthlyBars } from '@/components/charts/MonthlyBars';
 import { DonutChart } from '@/components/charts/DonutChart';
 import { TransactionForm } from '@/features/transactions/TransactionForm';
 
-const CURRENT_YM = '2026-05';
-
 function useMonthData() {
   const transactions = useTransactions((s) => s.transactions);
   const selectedMember = useMembers((s) => s.selectedMember);
+  const currentYm = useMemo(() => fmt.ym(new Date()), []);
   return useMemo(() => {
     const filteredByMember = filterByMember(transactions, selectedMember);
-    const monthTxs = filteredByMember.filter((t) => t.date.startsWith(CURRENT_YM));
+    const monthTxs = filteredByMember.filter((t) => t.date.startsWith(currentYm));
     const summary = monthSummary(monthTxs);
     const cats = byCategory(monthTxs, 'out');
-    return { monthTxs, summary, cats, selectedMember };
-  }, [transactions, selectedMember]);
+    return { monthTxs, summary, cats, selectedMember, currentYm };
+  }, [transactions, selectedMember, currentYm]);
 }
 
 function pctDelta(curr: number, prev: number): number {
@@ -43,7 +42,7 @@ function pctDelta(curr: number, prev: number): number {
 
 function CardGridVariant() {
   const currency = useSettings((s) => s.currencyMode);
-  const { monthTxs, summary, cats, selectedMember } = useMonthData();
+  const { monthTxs, summary, cats, selectedMember, currentYm } = useMonthData();
   const accounts = useAccounts((s) => s.accounts);
   const upcoming = useUpcoming((s) => s.upcoming);
   const budgets = useBudgets((s) => s.budgets);
@@ -114,7 +113,7 @@ function CardGridVariant() {
       <TotalExpenseBreakdown
         total={summary.expense}
         segments={cats}
-        monthLabel={fmt.ymLabel(CURRENT_YM)}
+        monthLabel={fmt.ymLabel(currentYm)}
       />
 
       <div className="grid cols-2">
@@ -305,7 +304,8 @@ function FamilyVariant() {
   const transactions = useTransactions((s) => s.transactions);
   const goals = useGoals((s) => s.goals);
   const upcoming = useUpcoming((s) => s.upcoming);
-  const monthTxs = transactions.filter((t) => t.date.startsWith(CURRENT_YM));
+  const currentYm = useMemo(() => fmt.ym(new Date()), []);
+  const monthTxs = transactions.filter((t) => t.date.startsWith(currentYm));
   const visibleMembers =
     selectedMember === 'all' ? members : members.filter((m) => m.id === selectedMember);
 

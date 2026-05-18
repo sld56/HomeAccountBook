@@ -13,8 +13,6 @@ import { Modal } from '@/components/ui/Modal';
 import { CATEGORIES, EXPENSE_CATEGORIES } from '@/data/categories';
 import type { CategoryId, Goal, Upcoming } from '@/types/domain';
 
-const CURRENT_YM = '2026-05';
-
 export function BudgetPage() {
   const transactions = useTransactions((s) => s.transactions);
   const currency = useSettings((s) => s.currencyMode);
@@ -30,14 +28,16 @@ export function BudgetPage() {
   const [addingUpcoming, setAddingUpcoming] = useState(false);
   const [editingUpcoming, setEditingUpcoming] = useState<Upcoming | null>(null);
 
+  const currentYm = useMemo(() => fmt.ym(new Date()), []);
+
   const used = useMemo(() => {
     const map: Partial<Record<CategoryId, number>> = {};
     for (const t of transactions) {
-      if (t.kind !== 'out' || !t.date.startsWith(CURRENT_YM)) continue;
+      if (t.kind !== 'out' || !t.date.startsWith(currentYm)) continue;
       map[t.cat] = (map[t.cat] ?? 0) + t.amount;
     }
     return map;
-  }, [transactions]);
+  }, [transactions, currentYm]);
 
   const totalBudget = useMemo(() => budgets.reduce((s, b) => s + b.limit, 0), [budgets]);
   const usedTotal = Object.values(used).reduce<number>((s, v) => s + (v ?? 0), 0);
@@ -48,7 +48,7 @@ export function BudgetPage() {
       <header className="page-header">
         <div>
           <h1 className="page-title">예산 · 목표</h1>
-          <div className="page-greet">{fmt.ymLabel(CURRENT_YM)} 가족 예산 현황</div>
+          <div className="page-greet">{fmt.ymLabel(currentYm)} 가족 예산 현황</div>
         </div>
       </header>
 
@@ -62,7 +62,7 @@ export function BudgetPage() {
         >
           <div className="between" style={{ marginBottom: 16 }}>
             <div>
-              <div className="meta" style={{ fontWeight: 600 }}>{fmt.ymLabel(CURRENT_YM)} 사용</div>
+              <div className="meta" style={{ fontWeight: 600 }}>{fmt.ymLabel(currentYm)} 사용</div>
               <div className="big-money num" style={{ marginTop: 4 }}>
                 {fmt.money(usedTotal, currency)}
               </div>

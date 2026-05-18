@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useMembers } from '@/stores/memberStore';
 import { useSettings } from '@/stores/settingsStore';
 import { useTransactions } from '@/stores/transactionStore';
@@ -11,14 +12,13 @@ import { KpiCard } from '@/components/domain/KpiCard';
 import { Sparkline } from '@/components/charts/Sparkline';
 import type { CategoryId } from '@/types/domain';
 
-const CURRENT_YM = '2026-05';
-
 export function FamilyOverview() {
   const members = useMembers((s) => s.members);
   const transactions = useTransactions((s) => s.transactions);
   const currency = useSettings((s) => s.currencyMode);
+  const currentYm = useMemo(() => fmt.ym(new Date()), []);
 
-  const monthTxs = transactions.filter((t) => t.date.startsWith(CURRENT_YM));
+  const monthTxs = transactions.filter((t) => t.date.startsWith(currentYm));
   const totalIncome = monthTxs.filter((t) => t.kind === 'in').reduce((s, t) => s + t.amount, 0);
   const totalExpense = monthTxs.filter((t) => t.kind === 'out').reduce((s, t) => s + t.amount, 0);
   const memberTotals = byMember(monthTxs, 'out');

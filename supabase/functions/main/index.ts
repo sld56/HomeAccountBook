@@ -346,9 +346,17 @@ async function importLocal(req: Request): Promise<Response> {
   const body = await req.json().catch(() => ({}));
   const household_id: string = body.household_id;
   const txs: Array<Record<string, unknown>> = body.transactions ?? [];
+  const accounts: Array<Record<string, unknown>> = body.accounts ?? [];
+  const budgets: Array<Record<string, unknown>> = body.budgets ?? [];
+  const goals: Array<Record<string, unknown>> = body.goals ?? [];
+  const upcoming: Array<Record<string, unknown>> = body.upcoming ?? [];
 
   if (!household_id) throw new HttpError(400, 'household_id required');
   if (txs.length > 10000) throw new HttpError(413, 'too many transactions');
+  if (accounts.length > 100) throw new HttpError(413, 'too many accounts');
+  if (budgets.length > 100) throw new HttpError(413, 'too many budgets');
+  if (goals.length > 100) throw new HttpError(413, 'too many goals');
+  if (upcoming.length > 500) throw new HttpError(413, 'too many upcoming');
 
   const service = getServiceClient();
 
@@ -360,6 +368,32 @@ async function importLocal(req: Request): Promise<Response> {
     .single();
   if (!mem) throw new HttpError(403, 'not a member');
 
+  // 1) accounts 먼저 — local_id → new uuid 매핑 구축
+  const VALID_ACC_TYPES = new Set(['입출금', '적금', '카드', '현금']);
+  const accountIdMap: Record<string, string> = {};
+  if (accounts.length) {
+    const rows = accounts.map((a, i) => {
+      const label = String(a.label ?? '').slice(0, 30);
+      if (!label) throw new HttpError(400, `account[${i}]: label required`);
+      const type = String(a.type ?? '');
+      if (!VALID_ACC_TYPES.has(type)) throw new HttpError(400, `account[${i}]: invalid type`);
+      const bank = String(a.bank ?? '').slice(0, 20) || '-';
+      const balance = Math.round(Number(a.balance ?? 0));
+      if (!Number.isFinite(balance)) throw new HttpError(400, `account[${i}]: invalid balance`);
+      const color = String(a.color ?? 'var(--sky)');
+      const card_limit =
+        a.limit !== undefined && a.limit !== null ? Math.round(Number(a.limit)) : null;
+      return { household_id, label, type, bank, balance, color, card_limit, created_by: user.id };
+    });
+    const { data: inserted, error } = await service.from('accounts').insert(rows).select('id');
+    if (error) throw new HttpError(500, `accounts: ${error.message}`);
+    (inserted ?? []).forEach((row, i) => {
+      const localId = accounts[i].id;
+      if (typeof localId === 'string' && localId) accountIdMap[localId] = row.id as string;
+    });
+  }
+
+  // 2) transactions — account_id 매핑 적용, member_id는 null (시드 ID와 호환 불가)
   if (txs.length) {
     const rows = txs.map((t, i) => {
       const date = String(t.date ?? '');
@@ -372,12 +406,13 @@ async function importLocal(req: Request): Promise<Response> {
       if (!Number.isFinite(amount) || amount <= 0) throw new HttpError(400, `tx[${i}]: invalid amount`);
       const title = String(t.title ?? '').slice(0, 40);
       if (!title) throw new HttpError(400, `tx[${i}]: title required`);
+      const localAccount = typeof t.account === 'string' ? t.account : '';
       return {
         household_id,
         date, kind, amount, cat, title,
         memo: typeof t.memo === 'string' ? t.memo.slice(0, 140) : null,
         member_id: null,
-        account_id: null,
+        account_id: accountIdMap[localAccount] ?? null,
         created_by: user.id,
       };
     });
@@ -385,15 +420,79 @@ async function importLocal(req: Request): Promise<Response> {
     if (error) throw new HttpError(500, `transactions: ${error.message}`);
   }
 
+  // 3) budgets — upsert (cat, ym)
+  if (budgets.length) {
+    const rows = budgets.map((b, i) => {
+      const cat = String(b.cat ?? '');
+      if (!VALID_CATS.has(cat)) throw new HttpError(400, `budget[${i}]: invalid cat`);
+      const limit = Math.round(Number(b.limit ?? 0));
+      if (!Number.isFinite(limit) || limit < 0) throw new HttpError(400, `budget[${i}]: invalid limit`);
+      const ym = typeof b.ym === 'string' && /^\d{4}-\d{2}$/.test(b.ym) ? b.ym : null;
+      return { household_id, cat, budget_limit: limit, ym };
+    });
+    const { error } = await service
+      .from('budgets')
+      .upsert(rows, { onConflict: 'household_id,cat,ym' });
+    if (error) throw new HttpError(500, `budgets: ${error.message}`);
+  }
+
+  // 4) goals
+  if (goals.length) {
+    const rows = goals.map((g, i) => {
+      const title = String(g.title ?? '').slice(0, 30);
+      if (!title) throw new HttpError(400, `goal[${i}]: title required`);
+      const target = Math.round(Number(g.target ?? 0));
+      if (!Number.isFinite(target) || target <= 0) throw new HttpError(400, `goal[${i}]: invalid target`);
+      const saved = Math.max(0, Math.round(Number(g.saved ?? 0)));
+      const monthly = Math.max(0, Math.round(Number(g.monthly ?? 0)));
+      const color = String(g.color ?? 'var(--sage)');
+      return { household_id, title, saved, target, monthly, color };
+    });
+    const { error } = await service.from('goals').insert(rows);
+    if (error) throw new HttpError(500, `goals: ${error.message}`);
+  }
+
+  // 5) upcoming
+  if (upcoming.length) {
+    const rows = upcoming.map((u, i) => {
+      const label = String(u.label ?? '').slice(0, 30);
+      if (!label) throw new HttpError(400, `upcoming[${i}]: label required`);
+      const date = String(u.date ?? '');
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new HttpError(400, `upcoming[${i}]: invalid date`);
+      const amount = Math.abs(Math.round(Number(u.amount ?? 0)));
+      if (!Number.isFinite(amount) || amount <= 0) throw new HttpError(400, `upcoming[${i}]: invalid amount`);
+      const cat = String(u.cat ?? '');
+      if (!VALID_CATS.has(cat)) throw new HttpError(400, `upcoming[${i}]: invalid cat`);
+      const autopay = Boolean(u.autopay);
+      return { household_id, label, due_date: date, amount, cat, autopay };
+    });
+    const { error } = await service.from('upcoming').insert(rows);
+    if (error) throw new HttpError(500, `upcoming: ${error.message}`);
+  }
+
   await audit({
     household_id,
     actor_user_id: user.id,
     action: 'import.local',
-    diff: { count: txs.length },
+    diff: {
+      transactions: txs.length,
+      accounts: accounts.length,
+      budgets: budgets.length,
+      goals: goals.length,
+      upcoming: upcoming.length,
+    },
     req,
   });
 
-  return json({ imported: { transactions: txs.length } });
+  return json({
+    imported: {
+      transactions: txs.length,
+      accounts: accounts.length,
+      budgets: budgets.length,
+      goals: goals.length,
+      upcoming: upcoming.length,
+    },
+  });
 }
 
 async function deleteAccount(req: Request): Promise<Response> {

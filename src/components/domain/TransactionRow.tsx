@@ -1,8 +1,9 @@
+import { useMemo } from 'react';
 import { CATEGORIES } from '@/data/categories';
-import { MEMBERS_BY_ID } from '@/data/members';
 import { fmt } from '@/lib/format';
 import { useSettings } from '@/stores/settingsStore';
 import { useAccounts } from '@/stores/accountStore';
+import { useMembers } from '@/stores/memberStore';
 import type { Transaction } from '@/types/domain';
 import { CategoryIcon } from './CategoryIcon';
 import { Chip } from '@/components/ui/Chip';
@@ -16,9 +17,16 @@ type Props = {
 export function TransactionRow({ tx, onClick }: Props) {
   const currency = useSettings((s) => s.currencyMode);
   const accounts = useAccounts((s) => s.accounts);
+  const members = useMembers((s) => s.members);
   const cat = CATEGORIES[tx.cat];
-  const account = accounts.find((a) => a.id === tx.account);
-  const member = MEMBERS_BY_ID[tx.member];
+  const account = useMemo(
+    () => accounts.find((a) => a.id === tx.account),
+    [accounts, tx.account],
+  );
+  const member = useMemo(
+    () => members.find((m) => m.id === tx.member),
+    [members, tx.member],
+  );
   return (
     <button type="button" className="tx-row" onClick={onClick}>
       <CategoryIcon catId={tx.cat} size={40} />

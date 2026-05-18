@@ -9,7 +9,8 @@ import { useAccounts } from './accountStore';
 import { useBudgets } from './budgetStore';
 import { useGoals } from './goalStore';
 import { useUpcoming } from './upcomingStore';
-import type { Transaction, Account, Budget, Goal, Upcoming } from '@/types/domain';
+import { useMembers } from './memberStore';
+import type { Transaction, Account, Budget, Goal, Upcoming, Member } from '@/types/domain';
 
 const channels: ReturnType<typeof supabase.channel>[] = [];
 
@@ -70,6 +71,25 @@ function upcomingFromDb(r: DbUpcoming): Upcoming {
   return {
     id: r.id, label: r.label, date: r.due_date, amount: r.amount,
     cat: r.cat as Upcoming['cat'], autopay: r.autopay,
+  };
+}
+
+type DbMember = {
+  household_id: string;
+  user_id: string;
+  role: 'owner' | 'member';
+  display_name: string;
+  short: string;
+  color_key: 'appa' | 'eomma' | 'deahyun' | 'jiwon';
+};
+
+function memberFromDb(r: DbMember): Member {
+  return {
+    id: r.user_id,
+    name: r.display_name,
+    short: r.short,
+    role: r.role === 'owner' ? '가장' : '자녀',
+    colorKey: r.color_key,
   };
 }
 
@@ -134,6 +154,47 @@ export async function startServerSync() {
   await stopServerSync(); // 기존 채널 정리
 
   await Promise.all([
+    // household_members (PK = household_id+user_id, id 컬럼 없음 — 별도 처리)
+    (async () => {
+      const { data, error } = await supabase
+        .from('household_members')
+        .select('*')
+        .eq('household_id', household_id);
+      if (error) {
+        console.error('[sync] household_members fetch failed', error);
+        return;
+      }
+      useMembers.setState({
+        members: (data as DbMember[]).map(memberFromDb),
+      });
+
+      const ch = supabase
+        .channel(`household_members-${household_id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'household_members',
+            filter: `household_id=eq.${household_id}`,
+          },
+          async () => {
+            // PK 복합키라 단순 재fetch (멤버 수 적음)
+            const { data: fresh } = await supabase
+              .from('household_members')
+              .select('*')
+              .eq('household_id', household_id);
+            if (fresh) {
+              useMembers.setState({
+                members: (fresh as DbMember[]).map(memberFromDb),
+              });
+            }
+          },
+        )
+        .subscribe();
+      channels.push(ch);
+    })(),
+
     // transactions
     fetchAndSubscribe<DbTx, Transaction>({
       table: 'transactions',
