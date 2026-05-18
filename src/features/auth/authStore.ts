@@ -22,6 +22,24 @@ type State = {
   signOut: () => Promise<void>;
 };
 
+// 로그아웃 시 비울 zustand persist 키. 가족이 같은 브라우저로 들어와도
+// 이전 사용자 데이터가 잔존하지 않게 함. 서버 모드에선 sync가 다시
+// 채워주므로 안전.
+const PERSIST_KEYS_TO_CLEAR = [
+  'gagyebu-transactions',
+  'gagyebu-accounts',
+  'gagyebu-budgets',
+  'gagyebu-goals',
+  'gagyebu-upcoming',
+  'gagyebu-members',
+  'gagyebu-tx-draft', // sessionStorage이지만 같이 정리
+  'gagyebu-migrated-at',
+];
+
+// HMR/StrictMode에서 init이 두 번 호출되면 listener도 중복 등록되는 문제
+// 방지용 모듈 레벨 변수.
+let authListener: { unsubscribe: () => void } | null = null;
+
 export const useAuth = create<State>((set, get) => ({
   loading: true,
   membershipChecked: false,
@@ -31,10 +49,16 @@ export const useAuth = create<State>((set, get) => ({
   membership: null,
 
   init: async () => {
+    // 이전 listener가 있으면 정리 (HMR/StrictMode 대비)
+    if (authListener) {
+      authListener.unsubscribe();
+      authListener = null;
+    }
+
     const { data } = await supabase.auth.getSession();
     set({ session: data.session, user: data.session?.user ?? null });
 
-    supabase.auth.onAuthStateChange(async (_event, session) => {
+    const sub = supabase.auth.onAuthStateChange(async (_event, session) => {
       set({ session, user: session?.user ?? null });
       if (session?.user) {
         // 새 로그인/세션 변경 — 멤버십 다시 조회 (await로 race 방지)
@@ -45,6 +69,7 @@ export const useAuth = create<State>((set, get) => ({
         set({ household_id: null, membership: null, membershipChecked: true });
       }
     });
+    authListener = sub.data.subscription;
 
     if (data.session?.user) {
       await get().refreshMembership();
@@ -77,6 +102,16 @@ export const useAuth = create<State>((set, get) => ({
 
   signOut: async () => {
     await supabase.auth.signOut();
+    // 로컬에 남은 이전 사용자 데이터 정리 — 다른 가족이 같은 브라우저로
+    // 들어와도 직전 데이터가 잠시 비치지 않게.
+    try {
+      for (const k of PERSIST_KEYS_TO_CLEAR) {
+        localStorage.removeItem(k);
+        sessionStorage.removeItem(k);
+      }
+    } catch {
+      /* 일부 브라우저에서 storage 접근 거부될 수 있음 — 무시 */
+    }
     set({
       user: null,
       session: null,
@@ -84,5 +119,10 @@ export const useAuth = create<State>((set, get) => ({
       membership: null,
       membershipChecked: true,
     });
+    // in-memory zustand 스토어들도 비우기 위해 가장 안전한 방법은 페이지 새로고침.
+    // 직접 import하면 순환 의존이라, location.replace로 깔끔하게 초기화.
+    if (typeof window !== 'undefined') {
+      window.location.replace('/');
+    }
   },
 }));

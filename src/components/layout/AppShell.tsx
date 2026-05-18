@@ -22,10 +22,12 @@ export function AppShell() {
 
   useEffect(() => {
     if (!isServerConfigured) return;
-    if (household_id) {
-      startServerSync();
-      return () => { stopServerSync(); };
-    }
+    if (!household_id) return;
+    startServerSync();
+    // household_id 변경 또는 unmount 시 모두 정리 — 채널 중복 방지
+    return () => {
+      stopServerSync();
+    };
   }, [household_id]);
 
   return (

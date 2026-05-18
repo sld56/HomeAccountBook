@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase, callFunction, isServerConfigured } from '@/lib/supabase';
 import { useAuth } from '@/features/auth/authStore';
+import { useMembers } from '@/stores/memberStore';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 
@@ -59,6 +60,15 @@ export function FamilySection() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // serverSync가 household_members를 Realtime으로 구독 중. 그쪽 store가
+  // 갱신될 때마다 본 섹션도 다시 불러와서 (멤버 수가 바뀌면) 초대 목록까지
+  // 새로 가져오게 함. 다른 PC에서 초대 수락/탈퇴 즉시 반영.
+  const syncedMemberCount = useMembers((s) => s.members.length);
+  useEffect(() => {
+    if (!household_id) return;
+    load();
+  }, [syncedMemberCount, household_id, load]);
 
   if (!isServerConfigured) {
     return null;

@@ -185,9 +185,16 @@ export async function startServerSync() {
               .select('*')
               .eq('household_id', household_id);
             if (fresh) {
+              const memberRows = fresh as DbMember[];
               useMembers.setState({
-                members: (fresh as DbMember[]).map(memberFromDb),
+                members: memberRows.map(memberFromDb),
               });
+              // 본 PC user가 명단에서 사라졌으면 = 추방됨 → 멤버십 재조회로
+              // household_id를 null로 떨어뜨려 AuthGuard가 onboarding으로 안내.
+              const currentUserId = useAuth.getState().user?.id;
+              if (currentUserId && !memberRows.some((r) => r.user_id === currentUserId)) {
+                await useAuth.getState().refreshMembership();
+              }
             }
           },
         )
