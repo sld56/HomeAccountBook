@@ -32,7 +32,6 @@ const PERSIST_KEYS_TO_CLEAR = [
   'gagyebu-goals',
   'gagyebu-upcoming',
   'gagyebu-members',
-  'gagyebu-tx-draft', // sessionStorage이지만 같이 정리
   'gagyebu-migrated-at',
 ];
 

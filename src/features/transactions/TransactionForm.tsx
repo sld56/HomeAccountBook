@@ -19,8 +19,6 @@ type Props = {
   initial?: Transaction;
 };
 
-const DRAFT_KEY = 'gagyebu-tx-draft';
-
 const todayStr = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -43,7 +41,9 @@ export function TransactionForm({ open, onClose, initial }: Props) {
   const [date, setDate] = useState(initial?.date ?? todayStr());
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // 편집 대상이 바뀌거나 새 추가 모달이 열리면 상태 초기화 (이전 값 잔존 방지)
+  // 모달이 열리거나 편집 대상이 바뀔 때마다 상태 초기화. 사용자 의도가
+  // 명확한 깨끗한 폼을 위해 draft 자동 복원은 사용하지 않음 (UX 혼란
+  // 방지 — "내가 입력 안 했는데 왜 다 채워져 있지?" 시나리오 차단).
   useEffect(() => {
     if (!open) return;
     if (initial) {
@@ -56,51 +56,22 @@ export function TransactionForm({ open, onClose, initial }: Props) {
       setMember(initial.member);
       setAccount(initial.account);
       setDate(initial.date);
-      setErrors({});
-      return;
+    } else {
+      // 새 추가 — 모두 기본값으로
+      setKind('out');
+      setAmount('');
+      setCat('');
+      setTitle('');
+      setMemo('');
+      setMember(members[0]?.id ?? '');
+      setAccount(accounts[0]?.id ?? '');
+      setDate(todayStr());
     }
-    // 새 추가 — 기본값으로 리셋 후 draft 복원 시도
-    setKind('out');
-    setAmount('');
-    setCat('');
-    setTitle('');
-    setMemo('');
-    setMember(members[0]?.id ?? '');
-    setAccount(accounts[0]?.id ?? '');
-    setDate(todayStr());
     setErrors({});
-    try {
-      const raw = sessionStorage.getItem(DRAFT_KEY);
-      if (raw) {
-        const d = JSON.parse(raw);
-        setKind(d.kind ?? 'out');
-        setAmount(d.amount ?? '');
-        setCat(d.cat ?? '');
-        setTitle(d.title ?? '');
-        setMemo(d.memo ?? '');
-        setMember(d.member ?? members[0]?.id ?? '');
-        setAccount(d.account ?? accounts[0]?.id ?? '');
-        setDate(d.date ?? todayStr());
-      }
-    } catch {
-      /* ignore */
-    }
-    // members/accounts는 의존성에서 제외 — 모달 열린 동안 변하면
-    // 폼이 초기화되어 입력 내용이 사라지는 부작용을 막음.
+    // members/accounts는 의존성에서 제외 — 모달 열린 동안 가족/계좌
+    // sync로 바뀌어도 입력 중인 폼이 초기화되지 않도록.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initial]);
-
-  // Draft 자동 저장
-  useEffect(() => {
-    if (!open || initial) return;
-    const id = setTimeout(() => {
-      sessionStorage.setItem(
-        DRAFT_KEY,
-        JSON.stringify({ kind, amount, cat, title, memo, member, account, date }),
-      );
-    }, 200);
-    return () => clearTimeout(id);
-  }, [open, initial, kind, amount, cat, title, memo, member, account, date]);
 
   const [busy, setBusy] = useState(false);
 
@@ -128,7 +99,6 @@ export function TransactionForm({ open, onClose, initial }: Props) {
         await update(initial.id, result.data as Partial<Transaction>);
       } else {
         await add(result.data as Omit<Transaction, 'id'>);
-        sessionStorage.removeItem(DRAFT_KEY);
       }
       handleClose();
     } catch (e) {
