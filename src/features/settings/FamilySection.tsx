@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase, callFunction, isServerConfigured } from '@/lib/supabase';
 import { useAuth } from '@/features/auth/authStore';
 import { Card } from '@/components/ui/Card';
@@ -36,7 +36,7 @@ export function FamilySection() {
 
   const isOwner = myMembership?.role === 'owner';
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!household_id) return;
     setLoading(true);
     const [{ data: mems }, { data: invs }] = await Promise.all([
@@ -54,9 +54,11 @@ export function FamilySection() {
     setMembers((mems ?? []) as Member[]);
     setInvites((invs ?? []) as Invitation[]);
     setLoading(false);
-  }
+  }, [household_id, isOwner]);
 
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [household_id]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   if (!isServerConfigured) {
     return null;

@@ -6,7 +6,13 @@ module.exports = {
     'plugin:@typescript-eslint/recommended',
     'plugin:react-hooks/recommended',
   ],
-  ignorePatterns: ['dist', '.eslintrc.cjs', 'prototype'],
+  ignorePatterns: [
+    'dist',
+    '.eslintrc.cjs',
+    'prototype',
+    // Deno Edge Functions — 별도 런타임이라 Node ESLint 설정 부적합
+    'supabase/functions',
+  ],
   parser: '@typescript-eslint/parser',
   plugins: ['react-refresh'],
   rules: {
