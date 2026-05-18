@@ -113,21 +113,36 @@ function AccountEditorModal({
 
   if (!open) return null;
 
+  // 음수 부호 1개 + 숫자만 추출. "1-000" → "1000", "-1,000" → "-1000".
+  const parseSignedNumber = (raw: string): number => {
+    const trimmed = raw.trim();
+    if (!trimmed) return 0;
+    const isNegative = trimmed.startsWith('-');
+    const digits = trimmed.replace(/[^0-9]/g, '');
+    if (!digits) return 0;
+    const n = Number(digits);
+    return isNegative ? -n : n;
+  };
+
   const handleSave = async () => {
     setBusy(true);
     setErr(null);
     try {
-      if (!label.trim()) throw new Error('이름을 입력하세요');
-      if (!bank.trim()) throw new Error('은행/카드사를 입력하세요');
-      const balanceNum = Number(balance.replace(/[-]?[^0-9-]/g, '')) || 0;
+      const lbl = label.trim();
+      const bk = bank.trim();
+      if (!lbl) throw new Error('이름을 입력하세요');
+      if (lbl.length > 30) throw new Error('이름은 30자 이내로 입력해주세요');
+      if (!bk) throw new Error('은행/카드사를 입력하세요');
+      if (bk.length > 20) throw new Error('은행/카드사는 20자 이내로 입력해주세요');
+      const balanceNum = parseSignedNumber(balance);
       const limitNum = creditLimit.trim()
         ? Number(creditLimit.replace(/[^0-9]/g, '')) || undefined
         : undefined;
 
       const payload = {
-        label: label.trim(),
+        label: lbl,
         type,
-        bank: bank.trim(),
+        bank: bk,
         balance: balanceNum,
         color,
         limit: limitNum,
@@ -163,11 +178,11 @@ function AccountEditorModal({
         <div className="grid cols-2">
           <div className="field">
             <label className="label">이름</label>
-            <input className="input" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="예: 국민은행 주거래" />
+            <input className="input" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="예: 국민은행 주거래" maxLength={30} />
           </div>
           <div className="field">
             <label className="label">은행 / 카드사</label>
-            <input className="input" value={bank} onChange={(e) => setBank(e.target.value)} placeholder="예: 국민" />
+            <input className="input" value={bank} onChange={(e) => setBank(e.target.value)} placeholder="예: 국민" maxLength={20} />
           </div>
         </div>
         <div className="grid cols-2">

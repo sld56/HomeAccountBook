@@ -142,13 +142,20 @@ export function SettingsPage() {
                 placeholder="새 가족 이름"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
+                maxLength={20}
               />
               <Button
                 onClick={() => {
-                  if (!newName.trim()) return;
+                  const trimmed = newName.trim();
+                  if (!trimmed) return;
+                  // 같은 이름 중복 방지 (정확 일치)
+                  if (members.some((m) => m.name === trimmed)) {
+                    alert('같은 이름의 가족이 이미 있어요.');
+                    return;
+                  }
                   addMember({
-                    name: newName.trim(),
-                    short: newName.trim().slice(0, 1),
+                    name: trimmed,
+                    short: trimmed.slice(0, 1),
                     role: '자녀',
                     colorKey: COLOR_KEYS[members.length % COLOR_KEYS.length],
                   });
@@ -194,6 +201,7 @@ function MemberEditor({
         value={member.name}
         onChange={(e) => onChange({ name: e.target.value, short: e.target.value.slice(0, 1) })}
         style={{ flex: 1, minWidth: 120 }}
+        maxLength={20}
       />
       <select
         className="select"

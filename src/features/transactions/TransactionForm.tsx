@@ -237,6 +237,7 @@ export function TransactionForm({ open, onClose, initial }: Props) {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="어디서 / 무엇"
+            maxLength={40}
           />
           {errors.title && <div style={{ color: 'var(--coral-2)', fontSize: 13, marginTop: 4 }}>{errors.title}</div>}
         </div>
@@ -252,7 +253,11 @@ export function TransactionForm({ open, onClose, initial }: Props) {
             value={memo}
             onChange={(e) => setMemo(e.target.value)}
             placeholder="비고"
+            maxLength={140}
           />
+          {errors.memo && (
+            <div style={{ color: 'var(--coral-2)', fontSize: 13, marginTop: 4 }}>{errors.memo}</div>
+          )}
         </div>
 
         {/* 누가 + 결제수단 */}
@@ -261,35 +266,53 @@ export function TransactionForm({ open, onClose, initial }: Props) {
             <label className="label" htmlFor="tx-member">
               누가
             </label>
-            <select
-              id="tx-member"
-              className="select"
-              value={member}
-              onChange={(e) => setMember(e.target.value)}
-            >
-              {members.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
+            {members.length === 0 ? (
+              <div className="meta" style={{ color: 'var(--coral-2)' }}>
+                가족 구성원이 없어요. 설정에서 먼저 추가해주세요.
+              </div>
+            ) : (
+              <select
+                id="tx-member"
+                className="select"
+                value={member}
+                onChange={(e) => setMember(e.target.value)}
+              >
+                {members.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+            )}
+            {errors.member && (
+              <div style={{ color: 'var(--coral-2)', fontSize: 13, marginTop: 4 }}>{errors.member}</div>
+            )}
           </div>
           <div className="field">
             <label className="label" htmlFor="tx-account">
               결제 수단
             </label>
-            <select
-              id="tx-account"
-              className="select"
-              value={account}
-              onChange={(e) => setAccount(e.target.value)}
-            >
-              {accounts.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.label}
-                </option>
-              ))}
-            </select>
+            {accounts.length === 0 ? (
+              <div className="meta" style={{ color: 'var(--coral-2)' }}>
+                계좌가 없어요. 설정에서 먼저 추가해주세요.
+              </div>
+            ) : (
+              <select
+                id="tx-account"
+                className="select"
+                value={account}
+                onChange={(e) => setAccount(e.target.value)}
+              >
+                {accounts.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.label}
+                  </option>
+                ))}
+              </select>
+            )}
+            {errors.account && (
+              <div style={{ color: 'var(--coral-2)', fontSize: 13, marginTop: 4 }}>{errors.account}</div>
+            )}
           </div>
         </div>
 
@@ -305,6 +328,9 @@ export function TransactionForm({ open, onClose, initial }: Props) {
             value={date}
             onChange={(e) => setDate(e.target.value)}
           />
+          {errors.date && (
+            <div style={{ color: 'var(--coral-2)', fontSize: 13, marginTop: 4 }}>{errors.date}</div>
+          )}
         </div>
 
         {errors.submit && (

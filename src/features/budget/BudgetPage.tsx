@@ -338,15 +338,13 @@ function GoalEditorModal({
     try {
       const t = title.trim();
       const tg = Number(target.replace(/[^0-9]/g, ''));
+      const sv = Number(saved.replace(/[^0-9]/g, '') || '0');
+      const mo = Number(monthly.replace(/[^0-9]/g, '') || '0');
       if (!t) throw new Error('제목을 입력하세요');
+      if (t.length > 30) throw new Error('제목은 30자 이내로 입력해주세요');
       if (!tg) throw new Error('목표 금액을 입력하세요');
-      const payload = {
-        title: t,
-        saved: Number(saved.replace(/[^0-9]/g, '') || '0'),
-        target: tg,
-        monthly: Number(monthly.replace(/[^0-9]/g, '') || '0'),
-        color,
-      };
+      if (sv > tg) throw new Error('현재 저축이 목표 금액을 초과할 수 없습니다');
+      const payload = { title: t, saved: sv, target: tg, monthly: mo, color };
       if (editing) {
         await update(editing.id, payload);
       } else {
@@ -377,7 +375,7 @@ function GoalEditorModal({
       <div className="stack">
         <div className="field">
           <label className="label" htmlFor="goal-title">제목</label>
-          <input id="goal-title" className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="예: 제주 가족여행" />
+          <input id="goal-title" className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="예: 제주 가족여행" maxLength={30} />
         </div>
         <div className="grid cols-3">
           <div className="field">
@@ -462,9 +460,21 @@ function UpcomingEditorModal({
     setErr(null);
     try {
       const a = Number(amount.replace(/[^0-9]/g, ''));
-      if (!label.trim()) throw new Error('이름을 입력하세요');
+      const lbl = label.trim();
+      if (!lbl) throw new Error('이름을 입력하세요');
+      if (lbl.length > 30) throw new Error('이름은 30자 이내로 입력해주세요');
       if (!a) throw new Error('금액을 입력하세요');
-      const payload = { label: label.trim(), date, amount: a, cat, autopay };
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('올바른 날짜를 선택해주세요');
+      // 과거 날짜는 경고 (편집 모드에서 이미 지난 결제 수정 케이스 허용)
+      if (!editing) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const due = new Date(date);
+        if (due < today) {
+          throw new Error('과거 날짜는 추가할 수 없습니다');
+        }
+      }
+      const payload = { label: lbl, date, amount: a, cat, autopay };
       if (editing) await update(editing.id, payload);
       else await add(payload);
       onClose();
@@ -492,7 +502,7 @@ function UpcomingEditorModal({
       <div className="stack">
         <div className="field">
           <label className="label">이름</label>
-          <input className="input" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="예: 아파트 관리비" />
+          <input className="input" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="예: 아파트 관리비" maxLength={30} />
         </div>
         <div className="grid cols-2">
           <div className="field">

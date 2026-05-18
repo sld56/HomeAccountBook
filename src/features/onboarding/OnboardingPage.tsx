@@ -71,10 +71,14 @@ function CreateHouseholdForm({ onCancel, onSuccess }: { onCancel: () => void; on
     setBusy(true);
     setErr(null);
     try {
+      const trimmedName = name.trim();
+      const trimmedDisplay = display.trim();
+      if (!trimmedName) throw new Error('가족 이름을 입력해주세요');
+      if (!trimmedDisplay) throw new Error('내 표시 이름을 입력해주세요');
       await callFunction('create-household', {
-        name: name.trim(),
-        display_name: display.trim(),
-        short: display.trim().slice(0, 1),
+        name: trimmedName,
+        display_name: trimmedDisplay,
+        short: trimmedDisplay.slice(0, 1),
         color_key: color,
       });
       onSuccess();
@@ -144,10 +148,16 @@ function AcceptInviteForm({ onCancel, onSuccess }: { onCancel: () => void; onSuc
     setBusy(true);
     setErr(null);
     try {
+      const trimmedToken = token.trim();
+      const trimmedDisplay = display.trim();
+      if (!/^[A-Za-z0-9_-]{64}$/.test(trimmedToken)) {
+        throw new Error('초대 토큰은 64자리 영숫자입니다');
+      }
+      if (!trimmedDisplay) throw new Error('내 표시 이름을 입력해주세요');
       await callFunction('accept-invite', {
-        token: token.trim(),
-        display_name: display.trim(),
-        short: display.trim().slice(0, 1),
+        token: trimmedToken,
+        display_name: trimmedDisplay,
+        short: trimmedDisplay.slice(0, 1),
         color_key: color,
       });
       onSuccess();
