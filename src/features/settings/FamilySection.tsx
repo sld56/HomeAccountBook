@@ -96,8 +96,12 @@ export function FamilySection() {
 
   async function revokeInvite(id: string) {
     if (!confirm('이 초대를 취소할까요?')) return;
-    await supabase.from('invitations').update({ revoked_at: new Date().toISOString() }).eq('id', id);
-    await load();
+    try {
+      await callFunction('revoke-invite', { invite_id: id });
+      await load();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : '초대 취소 실패');
+    }
   }
 
   async function removeMember(user_id: string, name: string) {

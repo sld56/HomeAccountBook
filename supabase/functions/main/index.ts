@@ -495,6 +495,52 @@ async function importLocal(req: Request): Promise<Response> {
   });
 }
 
+async function revokeInvite(req: Request): Promise<Response> {
+  const user = await getCurrentUser(req);
+  const body = await req.json().catch(() => ({}));
+  const invite_id: string = body.invite_id;
+  if (!invite_id) throw new HttpError(400, 'invite_id required');
+
+  const service = getServiceClient();
+
+  // 초대가 본인이 owner인 가족 소속인지 확인
+  const { data: inv, error: fetchErr } = await service
+    .from('invitations')
+    .select('id, household_id, consumed_at, revoked_at')
+    .eq('id', invite_id)
+    .maybeSingle();
+  if (fetchErr) throw new HttpError(500, fetchErr.message);
+  if (!inv) throw new HttpError(404, 'invitation not found');
+  if (inv.consumed_at) throw new HttpError(409, 'already consumed');
+  if (inv.revoked_at) return json({ revoked: true }); // 이미 취소됨 — 멱등
+
+  const { data: ownership } = await service
+    .from('household_members')
+    .select('user_id')
+    .eq('household_id', inv.household_id)
+    .eq('user_id', user.id)
+    .eq('role', 'owner')
+    .maybeSingle();
+  if (!ownership) throw new HttpError(403, 'not an owner of this household');
+
+  const { error: updErr } = await service
+    .from('invitations')
+    .update({ revoked_at: new Date().toISOString() })
+    .eq('id', invite_id);
+  if (updErr) throw new HttpError(500, updErr.message);
+
+  await audit({
+    household_id: inv.household_id,
+    actor_user_id: user.id,
+    action: 'invite.revoke',
+    target_table: 'invitations',
+    target_id: invite_id,
+    req,
+  });
+
+  return json({ revoked: true });
+}
+
 async function deleteAccount(req: Request): Promise<Response> {
   const user = await getCurrentUser(req);
   const service = getServiceClient();
@@ -541,6 +587,7 @@ const HANDLERS: Record<string, (req: Request) => Promise<Response>> = {
   'create-invite': createInvite,
   'accept-invite': acceptInvite,
   'remove-member': removeMember,
+  'revoke-invite': revokeInvite,
   'import-local': importLocal,
   'delete-account': deleteAccount,
 };
