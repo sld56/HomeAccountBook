@@ -4,7 +4,7 @@ import { useTransactions } from '@/stores/transactionStore';
 import { fmt } from '@/lib/format';
 import { byCategory, byMember } from '@/lib/stats';
 import { CATEGORIES, EXPENSE_CATEGORIES } from '@/data/categories';
-import { MONTHLY } from '@/data/monthly';
+import { aggregateMonthly, lastNMonths } from '@/lib/stats';
 import { Card } from '@/components/ui/Card';
 import { Avatar } from '@/components/ui/Avatar';
 import { KpiCard } from '@/components/domain/KpiCard';
@@ -25,6 +25,10 @@ export function FamilyOverview() {
   const topMember = memberTotals[0];
   const topMemberName = topMember ? members.find((m) => m.id === topMember.member)?.name ?? '-' : '-';
 
+  const monthlyAggregate = aggregateMonthly(transactions);
+  const last6 = lastNMonths(monthlyAggregate, 6);
+  const lastMonth = last6[last6.length - 2];
+
   return (
     <div className="stack">
       <div className="grid cols-4">
@@ -39,8 +43,7 @@ export function FamilyOverview() {
           const myTxs = monthTxs.filter((t) => t.member === m.id && t.kind === 'out');
           const expense = myTxs.reduce((s, t) => s + t.amount, 0);
           const ratio = totalExpense > 0 ? expense / totalExpense : 0;
-          const series = MONTHLY.slice(-6).map((mo) => mo.byMember[m.id] ?? 0);
-          const lastMonth = MONTHLY[MONTHLY.length - 2];
+          const series = last6.map((mo) => mo.byMember[m.id] ?? 0);
           const prev = lastMonth?.byMember[m.id] ?? 0;
           const delta = prev > 0 ? Math.round(((expense - prev) / prev) * 100) : 0;
           const myCats = byCategory(myTxs, 'out');

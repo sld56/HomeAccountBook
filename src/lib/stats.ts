@@ -6,6 +6,60 @@ export type MonthSummary = {
   net: number;
 };
 
+// ──────────────────────────────────────────────────────────────
+// 월별 집계 (시드 MONTHLY 대신 실제 거래에서 동적 계산)
+// ──────────────────────────────────────────────────────────────
+
+export type MonthlyAggregate = {
+  ym: string;
+  income: number;
+  expense: number;
+  byCategory: Partial<Record<CategoryId, number>>;
+  byMember: Record<string, number>;
+};
+
+export function aggregateMonthly(transactions: Transaction[]): MonthlyAggregate[] {
+  const map = new Map<string, MonthlyAggregate>();
+  for (const t of transactions) {
+    const ym = t.date.slice(0, 7);
+    let entry = map.get(ym);
+    if (!entry) {
+      entry = { ym, income: 0, expense: 0, byCategory: {}, byMember: {} };
+      map.set(ym, entry);
+    }
+    if (t.kind === 'in') entry.income += t.amount;
+    else {
+      entry.expense += t.amount;
+      entry.byCategory[t.cat] = (entry.byCategory[t.cat] ?? 0) + t.amount;
+      if (t.member) {
+        entry.byMember[t.member] = (entry.byMember[t.member] ?? 0) + t.amount;
+      }
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => a.ym.localeCompare(b.ym));
+}
+
+/** 최근 N개월을 빈 항목으로라도 채워서 반환 (오늘 기준 역순으로 N개월) */
+export function lastNMonths(
+  aggregate: MonthlyAggregate[],
+  n: number,
+  reference: Date = new Date(),
+): MonthlyAggregate[] {
+  const byYm = new Map(aggregate.map((a) => [a.ym, a]));
+  const out: MonthlyAggregate[] = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(reference.getFullYear(), reference.getMonth() - i, 1);
+    const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    out.push(byYm.get(ym) ?? { ym, income: 0, expense: 0, byCategory: {}, byMember: {} });
+  }
+  return out;
+}
+
+/** 최근 12개월 (현재 달 포함) */
+export function last12Months(aggregate: MonthlyAggregate[]): MonthlyAggregate[] {
+  return lastNMonths(aggregate, 12);
+}
+
 export function monthSummary(txs: Transaction[]): MonthSummary {
   let income = 0;
   let expense = 0;

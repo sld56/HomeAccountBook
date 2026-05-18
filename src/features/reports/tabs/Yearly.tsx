@@ -1,5 +1,7 @@
+import { useMemo } from 'react';
 import { useSettings } from '@/stores/settingsStore';
-import { MONTHLY } from '@/data/monthly';
+import { useTransactions } from '@/stores/transactionStore';
+import { aggregateMonthly, last12Months } from '@/lib/stats';
 import { fmt } from '@/lib/format';
 import { Card } from '@/components/ui/Card';
 import { KpiCard } from '@/components/domain/KpiCard';
@@ -9,7 +11,8 @@ import { CATEGORIES, EXPENSE_CATEGORIES } from '@/data/categories';
 
 export function Yearly() {
   const currency = useSettings((s) => s.currencyMode);
-  const data = MONTHLY;
+  const transactions = useTransactions((s) => s.transactions);
+  const data = useMemo(() => last12Months(aggregateMonthly(transactions)), [transactions]);
   const totalIncome = data.reduce((s, m) => s + m.income, 0);
   const totalExpense = data.reduce((s, m) => s + m.expense, 0);
   const totalSaving = totalIncome - totalExpense;

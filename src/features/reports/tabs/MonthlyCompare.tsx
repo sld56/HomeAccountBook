@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useSettings } from '@/stores/settingsStore';
-import { MONTHLY, MONTHLY_BY_YM } from '@/data/monthly';
+import { useTransactions } from '@/stores/transactionStore';
+import { aggregateMonthly, lastNMonths } from '@/lib/stats';
 import { fmt } from '@/lib/format';
 import { Card } from '@/components/ui/Card';
 import { KpiCard } from '@/components/domain/KpiCard';
@@ -11,12 +12,19 @@ import { Avatar } from '@/components/ui/Avatar';
 export function MonthlyCompare() {
   const currency = useSettings((s) => s.currencyMode);
   const members = useMembers((s) => s.members);
-  const yms = MONTHLY.map((m) => m.ym);
+  const transactions = useTransactions((s) => s.transactions);
+
+  // 거래에서 실제 발생한 월 + 최근 12개월 채워서 드롭다운에 표시
+  const aggregate = useMemo(() => aggregateMonthly(transactions), [transactions]);
+  const last12 = useMemo(() => lastNMonths(aggregate, 12), [aggregate]);
+  const byYm = useMemo(() => Object.fromEntries(last12.map((m) => [m.ym, m])), [last12]);
+  const yms = last12.map((m) => m.ym);
+
   const [a, setA] = useState(yms[yms.length - 2] ?? yms[0]);
   const [b, setB] = useState(yms[yms.length - 1] ?? yms[0]);
 
-  const A = MONTHLY_BY_YM[a];
-  const B = MONTHLY_BY_YM[b];
+  const A = byYm[a];
+  const B = byYm[b];
   if (!A || !B) return null;
 
   const delta = (x: number, y: number) => (y === 0 ? 0 : Math.round(((x - y) / y) * 100));

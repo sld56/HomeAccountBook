@@ -6,9 +6,8 @@ import { useAccounts } from '@/stores/accountStore';
 import { useBudgets } from '@/stores/budgetStore';
 import { useGoals } from '@/stores/goalStore';
 import { useUpcoming } from '@/stores/upcomingStore';
-import { filterByMember, monthSummary, byCategory } from '@/lib/stats';
+import { filterByMember, monthSummary, byCategory, aggregateMonthly, lastNMonths } from '@/lib/stats';
 import { fmt } from '@/lib/format';
-import { MONTHLY } from '@/data/monthly';
 import { CATEGORIES } from '@/data/categories';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -44,7 +43,7 @@ function pctDelta(curr: number, prev: number): number {
 
 function CardGridVariant() {
   const currency = useSettings((s) => s.currencyMode);
-  const { monthTxs, summary, cats } = useMonthData();
+  const { monthTxs, summary, cats, selectedMember } = useMonthData();
   const accounts = useAccounts((s) => s.accounts);
   const upcoming = useUpcoming((s) => s.upcoming);
   const budgets = useBudgets((s) => s.budgets);
@@ -53,15 +52,19 @@ function CardGridVariant() {
   const budgetRatio = totalBudget > 0 ? (usedBudget / totalBudget) * 100 : 0;
 
   const recent = [...monthTxs].sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 5);
-  const monthlyData = MONTHLY.slice(-6).map((m) => ({
-    ym: m.ym,
-    income: m.income,
-    expense: m.expense,
-  }));
 
-  const lastMonth = MONTHLY[MONTHLY.length - 2];
-  const expenseDelta = lastMonth ? pctDelta(summary.expense, lastMonth.expense) : 0;
-  const incomeDelta = lastMonth ? pctDelta(summary.income, lastMonth.income) : 0;
+  // 실제 거래에서 월별 집계 (시드 MONTHLY 대신)
+  const allTransactions = useTransactions((s) => s.transactions);
+  const monthlyAggregate = useMemo(
+    () => aggregateMonthly(filterByMember(allTransactions, selectedMember)),
+    [allTransactions, selectedMember],
+  );
+  const last6 = useMemo(() => lastNMonths(monthlyAggregate, 6), [monthlyAggregate]);
+  const monthlyData = last6.map((m) => ({ ym: m.ym, income: m.income, expense: m.expense }));
+
+  const prevMonth = last6[last6.length - 2];
+  const expenseDelta = prevMonth ? pctDelta(summary.expense, prevMonth.expense) : 0;
+  const incomeDelta = prevMonth ? pctDelta(summary.income, prevMonth.income) : 0;
 
   return (
     <div className="stack">
@@ -202,16 +205,16 @@ function CardGridVariant() {
 
 function BigNumberVariant() {
   const currency = useSettings((s) => s.currencyMode);
-  const { summary, cats } = useMonthData();
+  const { summary, cats, selectedMember } = useMonthData();
   const budgets = useBudgets((s) => s.budgets);
+  const allTransactions = useTransactions((s) => s.transactions);
   const totalBudget = useMemo(() => budgets.reduce((acc, b) => acc + b.limit, 0), [budgets]);
   const remaining = Math.max(0, totalBudget - summary.expense);
   const usedRatio = totalBudget > 0 ? (summary.expense / totalBudget) * 100 : 0;
-  const monthlyData = MONTHLY.slice(-6).map((m) => ({
-    ym: m.ym,
-    income: m.income,
-    expense: m.expense,
-  }));
+  const monthlyData = useMemo(() => {
+    const aggr = aggregateMonthly(filterByMember(allTransactions, selectedMember));
+    return lastNMonths(aggr, 6).map((m) => ({ ym: m.ym, income: m.income, expense: m.expense }));
+  }, [allTransactions, selectedMember]);
   return (
     <div className="stack">
       <Card
@@ -306,10 +309,12 @@ function FamilyVariant() {
   const visibleMembers =
     selectedMember === 'all' ? members : members.filter((m) => m.id === selectedMember);
 
+  const monthlyAggregate = aggregateMonthly(transactions);
+  const last6 = lastNMonths(monthlyAggregate, 6);
   const memberStats = visibleMembers.map((m) => {
     const txs = monthTxs.filter((t) => t.member === m.id && t.kind === 'out');
     const expense = txs.reduce((s, t) => s + t.amount, 0);
-    const series = MONTHLY.slice(-6).map((mo) => mo.byMember[m.id] ?? 0);
+    const series = last6.map((mo) => mo.byMember[m.id] ?? 0);
     return { member: m, expense, series };
   });
 
