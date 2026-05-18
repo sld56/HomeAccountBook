@@ -18,6 +18,14 @@ export function Modal({ open, onClose, title, children, width = 560 }: Props) {
   const previouslyFocused = useRef<HTMLElement | null>(null);
   const titleId = useRef(`modal-${Math.random().toString(36).slice(2, 8)}`).current;
 
+  // 부모가 매 렌더마다 새 onClose 함수를 만들어 넘기는 경우에도 (`onClose={() => ...}`)
+  // useEffect가 재실행되지 않도록 ref로 보관. 의존성에 onClose가 있으면 매 렌더마다
+  // focusFirst()가 호출되어 input에 focus가 머무르지 못함.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
   useEffect(() => {
     if (!open) return;
 
@@ -37,7 +45,7 @@ export function Modal({ open, onClose, title, children, width = 560 }: Props) {
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (e.key === 'Tab' && dialogRef.current) {
@@ -71,7 +79,7 @@ export function Modal({ open, onClose, title, children, width = 560 }: Props) {
       document.body.style.overflow = prevOverflow;
       previouslyFocused.current?.focus?.();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 
@@ -79,7 +87,7 @@ export function Modal({ open, onClose, title, children, width = 560 }: Props) {
     <div
       className="modal-overlay"
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget) onCloseRef.current();
       }}
     >
       <div
@@ -100,7 +108,7 @@ export function Modal({ open, onClose, title, children, width = 560 }: Props) {
               type="button"
               aria-label="닫기"
               className="modal-close"
-              onClick={onClose}
+              onClick={() => onCloseRef.current()}
             >
               ×
             </button>
