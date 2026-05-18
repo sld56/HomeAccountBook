@@ -40,7 +40,8 @@ export function FamilySection() {
   const load = useCallback(async () => {
     if (!household_id) return;
     setLoading(true);
-    const [{ data: mems }, { data: invs }] = await Promise.all([
+    setErr(null);
+    const [memRes, invRes] = await Promise.all([
       supabase.from('household_members').select('*').eq('household_id', household_id),
       isOwner
         ? supabase
@@ -50,10 +51,20 @@ export function FamilySection() {
             .is('consumed_at', null)
             .is('revoked_at', null)
             .order('created_at', { ascending: false })
-        : Promise.resolve({ data: [] as Invitation[] }),
+        : Promise.resolve({ data: [] as Invitation[], error: null }),
     ]);
-    setMembers((mems ?? []) as Member[]);
-    setInvites((invs ?? []) as Invitation[]);
+    if (memRes.error) {
+      setErr(`구성원 조회 실패: ${memRes.error.message}`);
+      setLoading(false);
+      return;
+    }
+    if ('error' in invRes && invRes.error) {
+      setErr(`초대 목록 조회 실패: ${invRes.error.message}`);
+      setLoading(false);
+      return;
+    }
+    setMembers((memRes.data ?? []) as Member[]);
+    setInvites((invRes.data ?? []) as Invitation[]);
     setLoading(false);
   }, [household_id, isOwner]);
 

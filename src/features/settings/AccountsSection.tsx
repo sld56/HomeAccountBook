@@ -164,9 +164,13 @@ function AccountEditorModal({
     if (!editing) return;
     if (!confirm('이 계좌를 삭제하시겠습니까?')) return;
     setBusy(true);
+    setErr(null);
     try {
       await remove(editing.id);
       onClose();
+    } catch (e) {
+      // FK 위반 (이 계좌를 쓴 거래가 있음) 또는 RLS 거부 등을 사용자에게 노출
+      setErr(e instanceof Error ? e.message : '삭제 실패');
     } finally {
       setBusy(false);
     }

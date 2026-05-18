@@ -14,6 +14,24 @@ import type { Transaction, Account, Budget, Goal, Upcoming, Member } from '@/typ
 
 const channels: ReturnType<typeof supabase.channel>[] = [];
 
+// 동시 start 호출 (StrictMode dev double-effect / 빠른 household_id 토글)이
+// 채널을 중복 추가하지 않도록 토큰으로 직렬화. 가장 최근 호출만 살아남고
+// 이전 호출이 만든 채널은 모두 unsubscribe.
+let syncToken = 0;
+
+// 동기화 상태 — 외부에서 에러 표시용으로 구독 가능
+let syncError: string | null = null;
+const syncErrorListeners = new Set<(err: string | null) => void>();
+function setSyncError(err: string | null) {
+  syncError = err;
+  for (const l of syncErrorListeners) l(err);
+}
+export function subscribeSyncError(cb: (err: string | null) => void): () => void {
+  syncErrorListeners.add(cb);
+  cb(syncError);
+  return () => syncErrorListeners.delete(cb);
+}
+
 // ──────────────────────────────────────────────────────────────
 // 변환 헬퍼
 // ──────────────────────────────────────────────────────────────
@@ -114,6 +132,9 @@ async function fetchAndSubscribe<DbT, T>(opts: {
   const { data, error } = await q;
   if (error) {
     console.error(`[sync] ${opts.table} fetch failed`, error);
+    // 부분 실패 시 stale 데이터로 오해받지 않도록 비움 + 사용자 알림
+    opts.setAll([]);
+    setSyncError(`동기화 실패 (${opts.table}). 네트워크 또는 권한 문제일 수 있어요.`);
     return;
   }
   opts.setAll((data as DbT[]).map(opts.fromDb));
@@ -151,7 +172,11 @@ export async function startServerSync() {
   const { household_id, user } = useAuth.getState();
   if (!household_id || !user) return;
 
+  // 동시 start 호출 직렬화 — 가장 최근 호출만 유효
+  const myToken = ++syncToken;
   await stopServerSync(); // 기존 채널 정리
+  setSyncError(null);
+  if (myToken !== syncToken) return; // 그 사이 더 새 호출이 들어왔으면 중단
 
   await Promise.all([
     // household_members (PK = household_id+user_id, id 컬럼 없음 — 별도 처리)
@@ -333,6 +358,13 @@ export async function startServerSync() {
       },
     }),
   ]);
+
+  // 직렬화 토큰 확인 — Promise.all 동안 새 호출이 들어왔다면 우리가 만든 채널만 정리
+  if (myToken !== syncToken) {
+    // 우리가 만든 채널은 channels 배열에 푸시됐을 텐데, 새 호출의 stopServerSync에서
+    // 이미 비웠을 가능성이 큼. 안전을 위해 한 번 더 정리.
+    await stopServerSync();
+  }
 }
 
 export async function stopServerSync() {

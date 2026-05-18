@@ -64,23 +64,28 @@ async function audit(opts: {
 }): Promise<void> {
   const service = getServiceClient();
   const ip = opts.req?.headers.get('cf-connecting-ip') ?? opts.req?.headers.get('x-forwarded-for');
-  let ipHash: Uint8Array | null = null;
+  // token_hash와 같은 직렬화 버그 회피 — Uint8Array 대신 hex string.
+  // (migration 0005: ip_hash 컬럼을 text로 변경한 짝)
+  let ipHashHex: string | null = null;
   if (ip) {
     const salt = new Date().toISOString().slice(0, 10);
     const data = new TextEncoder().encode(ip + salt);
     const buf = await crypto.subtle.digest('SHA-256', data);
-    ipHash = new Uint8Array(buf);
+    const bytes = new Uint8Array(buf);
+    ipHashHex = Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
   }
-  await service.from('audit_log').insert({
+  const { error } = await service.from('audit_log').insert({
     household_id: opts.household_id,
     actor_user_id: opts.actor_user_id,
     action: opts.action,
     target_table: opts.target_table,
     target_id: opts.target_id,
     diff: opts.diff ?? null,
-    ip_hash: ipHash,
+    ip_hash: ipHashHex,
     user_agent: opts.req?.headers.get('user-agent')?.slice(0, 200),
   });
+  // 사용자 mutation은 성공해도 감사 로그가 silently 깨지지 않도록 명시 로그
+  if (error) console.error('[audit] insert failed:', error.message);
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -173,14 +178,17 @@ async function createInvite(req: Request): Promise<Response> {
   const raw = new Uint8Array(32);
   crypto.getRandomValues(raw);
   const tokenHex = Array.from(raw).map((b) => b.toString(16).padStart(2, '0')).join('');
-  const tokenHash = new Uint8Array(await crypto.subtle.digest('SHA-256', raw));
+  const hashBytes = new Uint8Array(await crypto.subtle.digest('SHA-256', raw));
+  // supabase-js가 Uint8Array를 PostgreSQL bytea로 변환 못 해 JSON으로
+  // 직렬화하던 버그 회피 — hex string으로 보내고 컬럼도 text. (0004 마이그레이션 짝)
+  const tokenHashHex = Array.from(hashBytes).map((b) => b.toString(16).padStart(2, '0')).join('');
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
   const { data: inv, error: invErr } = await service.from('invitations').insert({
     household_id,
     invited_by: user.id,
     email: email ?? null,
-    token_hash: tokenHash,
+    token_hash: tokenHashHex,
     role,
     expires_at: expiresAt,
   }).select('id').single();
@@ -241,52 +249,71 @@ async function acceptInvite(req: Request): Promise<Response> {
 
   const service = getServiceClient();
   const rawBytes = new Uint8Array(token.match(/.{2}/g)!.map((b) => parseInt(b, 16)));
-  const hash = new Uint8Array(await crypto.subtle.digest('SHA-256', rawBytes));
+  const hashBytes = new Uint8Array(await crypto.subtle.digest('SHA-256', rawBytes));
+  const hashHex = Array.from(hashBytes).map((b) => b.toString(16).padStart(2, '0')).join('');
 
-  const { data: inv, error: invErr } = await service
+  // 1) 먼저 검증용 read (사용자 친화적 에러를 위해)
+  const { data: peek } = await service
     .from('invitations')
     .select('id, household_id, role, expires_at, consumed_at, revoked_at')
-    .eq('token_hash', hash)
-    .single();
+    .eq('token_hash', hashHex)
+    .maybeSingle();
 
-  if (invErr || !inv) throw new HttpError(404, 'invite not found');
-  if (inv.consumed_at) throw new HttpError(410, 'invite already used');
-  if (inv.revoked_at) throw new HttpError(410, 'invite revoked');
-  if (new Date(inv.expires_at) <= new Date()) throw new HttpError(410, 'invite expired');
+  if (!peek) throw new HttpError(404, 'invite not found');
+  if (peek.consumed_at) throw new HttpError(410, 'invite already used');
+  if (peek.revoked_at) throw new HttpError(410, 'invite revoked');
+  if (new Date(peek.expires_at) <= new Date()) throw new HttpError(410, 'invite expired');
 
+  // 2) 이미 멤버인지 (다른 토큰으로 가입한 경우)
   const { data: existing } = await service
     .from('household_members')
     .select('user_id')
-    .eq('household_id', inv.household_id)
+    .eq('household_id', peek.household_id)
     .eq('user_id', user.id)
     .maybeSingle();
   if (existing) throw new HttpError(409, 'already a member');
 
+  // 3) atomic "소비" — consumed_at IS NULL 조건으로 update. 두 사용자가 동시에
+  //    같은 링크를 눌러도 한 명만 RETURNING으로 row를 가져감. 패자는 빈 결과 → 410.
+  const { data: claimed, error: claimErr } = await service
+    .from('invitations')
+    .update({ consumed_at: new Date().toISOString(), consumed_by: user.id })
+    .eq('id', peek.id)
+    .is('consumed_at', null)
+    .is('revoked_at', null)
+    .select('id, household_id, role')
+    .maybeSingle();
+  if (claimErr) throw new HttpError(500, claimErr.message);
+  if (!claimed) throw new HttpError(410, 'invite already used');
+
+  // 4) 이제서야 멤버 행 삽입. 실패하면 invitation을 되돌려야 함.
   const { error: memErr } = await service.from('household_members').insert({
-    household_id: inv.household_id,
+    household_id: claimed.household_id,
     user_id: user.id,
-    role: inv.role,
+    role: claimed.role,
     display_name: displayName,
     short,
     color_key: colorKey,
   });
-  if (memErr) throw new HttpError(500, `failed to join: ${memErr.message}`);
-
-  await service
-    .from('invitations')
-    .update({ consumed_at: new Date().toISOString(), consumed_by: user.id })
-    .eq('id', inv.id);
+  if (memErr) {
+    // 보상 — 소비를 되돌려 다른 사용자가 다시 시도할 수 있게
+    await service
+      .from('invitations')
+      .update({ consumed_at: null, consumed_by: null })
+      .eq('id', claimed.id);
+    throw new HttpError(500, `failed to join: ${memErr.message}`);
+  }
 
   await audit({
-    household_id: inv.household_id,
+    household_id: claimed.household_id,
     actor_user_id: user.id,
     action: 'invite.consume',
     target_table: 'invitations',
-    target_id: inv.id,
+    target_id: claimed.id,
     req,
   });
 
-  return json({ household_id: inv.household_id, role: inv.role });
+  return json({ household_id: claimed.household_id, role: claimed.role });
 }
 
 async function removeMember(req: Request): Promise<Response> {
@@ -523,10 +550,13 @@ async function revokeInvite(req: Request): Promise<Response> {
     .maybeSingle();
   if (!ownership) throw new HttpError(403, 'not an owner of this household');
 
+  // 소비/취소된 사이에 race가 일어나면 update를 건너뛰도록 조건부
   const { error: updErr } = await service
     .from('invitations')
     .update({ revoked_at: new Date().toISOString() })
-    .eq('id', invite_id);
+    .eq('id', invite_id)
+    .is('consumed_at', null)
+    .is('revoked_at', null);
   if (updErr) throw new HttpError(500, updErr.message);
 
   await audit({
@@ -559,7 +589,14 @@ async function deleteAccount(req: Request): Promise<Response> {
       .eq('role', 'owner')
       .neq('user_id', user.id);
     if ((count ?? 0) === 0) {
-      await service.from('households').delete().eq('id', row.household_id);
+      const { error: hhDelErr } = await service
+        .from('households')
+        .delete()
+        .eq('id', row.household_id);
+      if (hhDelErr) {
+        console.error('[deleteAccount] household delete failed:', hhDelErr.message);
+        throw new HttpError(500, `failed to delete household: ${hhDelErr.message}`);
+      }
       await audit({
         household_id: row.household_id,
         actor_user_id: user.id,
@@ -569,8 +606,19 @@ async function deleteAccount(req: Request): Promise<Response> {
     }
   }
 
-  await service.from('household_members').delete().eq('user_id', user.id);
-  await service.from('audit_log').update({ actor_user_id: null }).eq('actor_user_id', user.id);
+  const { error: memDelErr } = await service
+    .from('household_members')
+    .delete()
+    .eq('user_id', user.id);
+  if (memDelErr) {
+    console.error('[deleteAccount] member delete failed:', memDelErr.message);
+    throw new HttpError(500, `failed to leave households: ${memDelErr.message}`);
+  }
+  const { error: auditUpdErr } = await service
+    .from('audit_log')
+    .update({ actor_user_id: null })
+    .eq('actor_user_id', user.id);
+  if (auditUpdErr) console.error('[deleteAccount] audit anon failed:', auditUpdErr.message);
 
   const { error: delErr } = await service.auth.admin.deleteUser(user.id);
   if (delErr) throw new HttpError(500, `failed to delete user: ${delErr.message}`);

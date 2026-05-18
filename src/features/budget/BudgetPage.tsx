@@ -362,9 +362,12 @@ function GoalEditorModal({
     if (!editing) return;
     if (!confirm('이 목표를 삭제하시겠습니까?')) return;
     setBusy(true);
+    setErr(null);
     try {
       await remove(editing.id);
       onClose();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : '삭제 실패');
     } finally {
       setBusy(false);
     }
@@ -489,9 +492,12 @@ function UpcomingEditorModal({
     if (!editing) return;
     if (!confirm('이 결제 항목을 삭제하시겠습니까?')) return;
     setBusy(true);
+    setErr(null);
     try {
       await remove(editing.id);
       onClose();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : '삭제 실패');
     } finally {
       setBusy(false);
     }

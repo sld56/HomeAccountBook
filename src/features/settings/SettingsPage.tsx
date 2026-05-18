@@ -116,57 +116,61 @@ export function SettingsPage() {
 
         {isServerConfigured && <FamilySection />}
 
-        <Card>
-          <h3 className="section-title">{isServerConfigured ? '로컬 별명 (서버 미설정 시)' : '가족 구성원'}</h3>
-          <div className="stack" style={{ gap: 10 }}>
-            {members.map((m, idx) => (
-              <MemberEditor
-                key={m.id}
-                member={m}
-                onChange={(patch) => updateMember(m.id, patch)}
-                onRemove={members.length > 1 ? () => removeMember(m.id) : undefined}
-                fallbackColor={COLOR_KEYS[idx % COLOR_KEYS.length]}
-              />
-            ))}
-            <div
-              className="row"
-              style={{
-                gap: 8,
-                marginTop: 8,
-                paddingTop: 14,
-                borderTop: '1px solid var(--border)',
-              }}
-            >
-              <input
-                className="input"
-                placeholder="새 가족 이름"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                maxLength={20}
-              />
-              <Button
-                onClick={() => {
-                  const trimmed = newName.trim();
-                  if (!trimmed) return;
-                  // 같은 이름 중복 방지 (정확 일치)
-                  if (members.some((m) => m.name === trimmed)) {
-                    alert('같은 이름의 가족이 이미 있어요.');
-                    return;
-                  }
-                  addMember({
-                    name: trimmed,
-                    short: trimmed.slice(0, 1),
-                    role: '자녀',
-                    colorKey: COLOR_KEYS[members.length % COLOR_KEYS.length],
-                  });
-                  setNewName('');
+        {/* 로컬 모드에서만 로컬 멤버 편집 노출.
+            서버 모드에선 FamilySection이 진실의 원천이라 여기서 편집하면
+            Realtime sync로 즉시 덮어써져 사용자가 본 편집이 사라지는 환각. */}
+        {!isServerConfigured && (
+          <Card>
+            <h3 className="section-title">가족 구성원</h3>
+            <div className="stack" style={{ gap: 10 }}>
+              {members.map((m, idx) => (
+                <MemberEditor
+                  key={m.id}
+                  member={m}
+                  onChange={(patch) => updateMember(m.id, patch)}
+                  onRemove={members.length > 1 ? () => removeMember(m.id) : undefined}
+                  fallbackColor={COLOR_KEYS[idx % COLOR_KEYS.length]}
+                />
+              ))}
+              <div
+                className="row"
+                style={{
+                  gap: 8,
+                  marginTop: 8,
+                  paddingTop: 14,
+                  borderTop: '1px solid var(--border)',
                 }}
               >
-                추가
-              </Button>
+                <input
+                  className="input"
+                  placeholder="새 가족 이름"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  maxLength={20}
+                />
+                <Button
+                  onClick={() => {
+                    const trimmed = newName.trim();
+                    if (!trimmed) return;
+                    if (members.some((m) => m.name === trimmed)) {
+                      alert('같은 이름의 가족이 이미 있어요.');
+                      return;
+                    }
+                    addMember({
+                      name: trimmed,
+                      short: trimmed.slice(0, 1),
+                      role: '자녀',
+                      colorKey: COLOR_KEYS[members.length % COLOR_KEYS.length],
+                    });
+                    setNewName('');
+                  }}
+                >
+                  추가
+                </Button>
+              </div>
             </div>
-          </div>
-        </Card>
+          </Card>
+        )}
       </div>
     </>
   );

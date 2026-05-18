@@ -82,10 +82,14 @@ export const useAuth = create<State>((set, get) => ({
       set({ household_id: null, membership: null });
       return;
     }
+    // joined_at 오름차순으로 안정 정렬 — 다중 가구 사용자도 가장 먼저
+    // 가입한 가족을 기본 활성 가족으로 잡아 매 페이지 로드 시 다른 가족이
+    // 나오는 비결정성을 차단.
     const { data, error } = await supabase
       .from('household_members')
-      .select('household_id, role, display_name, short, color_key')
+      .select('household_id, role, display_name, short, color_key, joined_at')
       .eq('user_id', user.id)
+      .order('joined_at', { ascending: true })
       .limit(1)
       .maybeSingle();
     if (error) {
@@ -93,7 +97,10 @@ export const useAuth = create<State>((set, get) => ({
       return;
     }
     if (data) {
-      set({ household_id: data.household_id, membership: data as Membership });
+      // joined_at은 Membership 타입에 없으므로 제외
+      const { joined_at: _ignored, ...membership } = data as Membership & { joined_at: string };
+      void _ignored;
+      set({ household_id: data.household_id, membership: membership as Membership });
     } else {
       set({ household_id: null, membership: null });
     }

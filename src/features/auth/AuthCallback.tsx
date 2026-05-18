@@ -20,8 +20,10 @@ export function AuthCallback() {
           return;
         }
       }
-      const redirect = search.get('redirect') ?? '/';
-      navigate(redirect, { replace: true });
+      // redirect는 신뢰 불가 입력 — open-redirect 방지를 위해 안전한 path만 허용
+      const raw = search.get('redirect') ?? '/';
+      const safe = raw.startsWith('/') && !raw.startsWith('//') && !raw.includes(':') ? raw : '/';
+      navigate(safe, { replace: true });
     })();
     return () => { cancelled = true; };
   }, [search, navigate]);
