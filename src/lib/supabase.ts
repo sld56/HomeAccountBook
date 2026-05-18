@@ -3,9 +3,13 @@ import { createClient } from '@supabase/supabase-js';
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
-if (!url || !anonKey) {
-  console.warn(
-    '[supabase] VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY missing — running in local-only mode',
+// URL과 KEY는 함께 설정해야 함. 한쪽만 있으면 설정 실수 — 빌드 시 명시적 경고.
+if (!url && !anonKey) {
+  console.info('[supabase] 환경 변수 미설정 — 로컬 전용 모드로 실행');
+} else if (!url || !anonKey) {
+  console.error(
+    '[supabase] VITE_SUPABASE_URL과 VITE_SUPABASE_ANON_KEY는 함께 설정해야 합니다. ' +
+      `URL=${Boolean(url)}, ANON_KEY=${Boolean(anonKey)}. 로컬 전용 모드로 폴백합니다.`,
   );
 }
 

@@ -335,9 +335,28 @@ function FamilyVariant() {
 
   const totalExpense = memberStats.reduce((s, ms) => s + ms.expense, 0);
 
+  // 가족 인원에 맞춰 그리드 컬럼 동적 조정 (0~4명 모두 보기 좋게)
+  const gridClass =
+    memberStats.length >= 4 ? 'grid cols-4'
+    : memberStats.length === 3 ? 'grid cols-3'
+    : memberStats.length === 2 ? 'grid cols-2'
+    : 'stack';
+
+  if (memberStats.length === 0) {
+    return (
+      <div className="stack">
+        <Card>
+          <p className="meta muted">
+            가족 구성원이 없어요. 설정에서 추가하거나 초대를 보내보세요.
+          </p>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="stack">
-      <div className="grid cols-4">
+      <div className={gridClass}>
         {memberStats.map((ms) => (
           <Card key={ms.member.id} className="stack">
             <div className="row">

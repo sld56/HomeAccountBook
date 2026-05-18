@@ -163,7 +163,19 @@ export function FamilySection() {
           {inviteUrl && (
             <div style={{ marginTop: 10, padding: 12, background: 'var(--surface-2)', borderRadius: 12, fontSize: 'var(--fs-sm)', wordBreak: 'break-all' }}>
               <strong>링크:</strong> {inviteUrl}
-              <Button variant="ghost" size="sm" style={{ marginLeft: 8 }} onClick={() => { navigator.clipboard.writeText(inviteUrl); setInfo('링크를 복사했습니다.'); }}>
+              <Button
+                variant="ghost"
+                size="sm"
+                style={{ marginLeft: 8 }}
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(inviteUrl);
+                    setInfo('링크를 복사했습니다.');
+                  } catch {
+                    setErr('복사 권한이 거부되었습니다. 링크를 직접 선택해 복사해주세요.');
+                  }
+                }}
+              >
                 복사
               </Button>
             </div>
