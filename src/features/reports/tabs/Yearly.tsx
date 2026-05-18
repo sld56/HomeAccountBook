@@ -17,15 +17,24 @@ export function Yearly() {
   const totalExpense = data.reduce((s, m) => s + m.expense, 0);
   const totalSaving = totalIncome - totalExpense;
   const savingRate = totalIncome > 0 ? (totalSaving / totalIncome) * 100 : 0;
+  const hasData = totalIncome > 0 || totalExpense > 0;
 
-  const best = data.reduce(
-    (acc, m) => (m.income - m.expense > acc.value ? { ym: m.ym, value: m.income - m.expense } : acc),
-    { ym: '', value: -Infinity },
-  );
-  const worst = data.reduce(
-    (acc, m) => (m.income - m.expense < acc.value ? { ym: m.ym, value: m.income - m.expense } : acc),
-    { ym: '', value: Infinity },
-  );
+  // 거래 있는 달만 베스트/워스트 후보로 (0거래 달이 베스트로 잡히는 것 방지)
+  const monthsWithActivity = data.filter((m) => m.income > 0 || m.expense > 0);
+  const best = hasData
+    ? monthsWithActivity.reduce(
+        (acc, m) =>
+          m.income - m.expense > acc.value ? { ym: m.ym, value: m.income - m.expense } : acc,
+        { ym: monthsWithActivity[0]?.ym ?? '', value: -Infinity },
+      )
+    : null;
+  const worst = hasData
+    ? monthsWithActivity.reduce(
+        (acc, m) =>
+          m.income - m.expense < acc.value ? { ym: m.ym, value: m.income - m.expense } : acc,
+        { ym: monthsWithActivity[0]?.ym ?? '', value: Infinity },
+      )
+    : null;
   const avgExpense = totalExpense / data.length;
 
   let cumulative = 0;
@@ -61,13 +70,25 @@ export function Yearly() {
       <div className="grid cols-3">
         <Card>
           <h3 className="section-title">베스트 달</h3>
-          <div className="big-money num" style={{ color: 'var(--sage-2)' }}>{fmt.ymLabel(best.ym)}</div>
-          <div className="meta num" style={{ marginTop: 4 }}>저축 {fmt.money(best.value, currency)}</div>
+          {best ? (
+            <>
+              <div className="big-money num" style={{ color: 'var(--sage-2)' }}>{fmt.ymLabel(best.ym)}</div>
+              <div className="meta num" style={{ marginTop: 4 }}>저축 {fmt.money(best.value, currency)}</div>
+            </>
+          ) : (
+            <p className="meta muted">아직 데이터가 없어요</p>
+          )}
         </Card>
         <Card>
           <h3 className="section-title">워스트 달</h3>
-          <div className="big-money num" style={{ color: 'var(--coral-2)' }}>{fmt.ymLabel(worst.ym)}</div>
-          <div className="meta num" style={{ marginTop: 4 }}>저축 {fmt.money(worst.value, currency)}</div>
+          {worst ? (
+            <>
+              <div className="big-money num" style={{ color: 'var(--coral-2)' }}>{fmt.ymLabel(worst.ym)}</div>
+              <div className="meta num" style={{ marginTop: 4 }}>저축 {fmt.money(worst.value, currency)}</div>
+            </>
+          ) : (
+            <p className="meta muted">아직 데이터가 없어요</p>
+          )}
         </Card>
         <Card>
           <h3 className="section-title">월평균 지출</h3>

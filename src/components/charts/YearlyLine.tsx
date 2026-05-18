@@ -17,7 +17,23 @@ export function YearlyLine({ data, height = 280 }: Props) {
   const innerW = width - padding.left - padding.right;
   const innerH = height - padding.top - padding.bottom;
 
-  const max = Math.max(...data.flatMap((d) => [d.income, d.expense])) * 1.1 || 1;
+  const peak = Math.max(...data.flatMap((d) => [d.income, d.expense]));
+  if (peak === 0) {
+    return (
+      <div
+        style={{
+          height,
+          display: 'grid',
+          placeItems: 'center',
+          color: 'var(--ink-3)',
+        }}
+        className="meta"
+      >
+        아직 거래가 없어요
+      </div>
+    );
+  }
+  const max = peak * 1.1;
   const x = (i: number) =>
     padding.left + (i / Math.max(1, data.length - 1)) * innerW;
   const y = (v: number) => padding.top + innerH - (v / max) * innerH;

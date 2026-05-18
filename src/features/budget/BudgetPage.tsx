@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTransactions } from '@/stores/transactionStore';
 import { useSettings } from '@/stores/settingsStore';
 import { useBudgets } from '@/stores/budgetStore';
@@ -319,16 +319,15 @@ function GoalEditorModal({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  // editing 바뀌면 폼 초기화
-  useMemo(() => {
-    if (open) {
-      setTitle(editing?.title ?? '');
-      setSaved(String(editing?.saved ?? 0));
-      setTarget(String(editing?.target ?? ''));
-      setMonthly(String(editing?.monthly ?? 0));
-      setColor(editing?.color ?? 'var(--sage)');
-      setErr(null);
-    }
+  // 모달이 열리거나 편집 대상이 바뀌면 폼 초기화 (useMemo로 set 호출은 안티패턴)
+  useEffect(() => {
+    if (!open) return;
+    setTitle(editing?.title ?? '');
+    setSaved(String(editing?.saved ?? 0));
+    setTarget(String(editing?.target ?? ''));
+    setMonthly(String(editing?.monthly ?? 0));
+    setColor(editing?.color ?? 'var(--sage)');
+    setErr(null);
   }, [open, editing]);
 
   if (!open) return null;
@@ -446,15 +445,14 @@ function UpcomingEditorModal({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  useMemo(() => {
-    if (open) {
-      setLabel(editing?.label ?? '');
-      setDate(editing?.date ?? new Date().toISOString().slice(0, 10));
-      setAmount(String(editing?.amount ?? ''));
-      setCat(editing?.cat ?? 'utility');
-      setAutopay(editing?.autopay ?? false);
-      setErr(null);
-    }
+  useEffect(() => {
+    if (!open) return;
+    setLabel(editing?.label ?? '');
+    setDate(editing?.date ?? new Date().toISOString().slice(0, 10));
+    setAmount(String(editing?.amount ?? ''));
+    setCat(editing?.cat ?? 'utility');
+    setAutopay(editing?.autopay ?? false);
+    setErr(null);
   }, [open, editing]);
 
   if (!open) return null;

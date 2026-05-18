@@ -12,7 +12,23 @@ export function MonthlyBars({ data, height = 200 }: Props) {
   const currency = useSettings((s) => s.currencyMode);
   if (!data.length) return null;
 
-  const max = Math.max(...data.map((d) => Math.max(d.income, d.expense))) * 1.1 || 1;
+  const peak = Math.max(...data.map((d) => Math.max(d.income, d.expense)));
+  if (peak === 0) {
+    return (
+      <div
+        style={{
+          height,
+          display: 'grid',
+          placeItems: 'center',
+          color: 'var(--ink-3)',
+        }}
+        className="meta"
+      >
+        아직 거래가 없어요
+      </div>
+    );
+  }
+  const max = peak * 1.1;
   const groupWidth = 60;
   const barWidth = 18;
   const gap = 8;

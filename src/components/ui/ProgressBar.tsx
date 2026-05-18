@@ -15,7 +15,8 @@ export function ProgressBar({
   color,
   label,
 }: Props) {
-  const pct = Math.max(0, Math.min(100, (value / max) * 100));
+  // max=0이면 (value/max)가 Infinity가 되어 clamp 후 100%로 표시되는 버그 방지
+  const pct = max > 0 ? Math.max(0, Math.min(100, (value / max) * 100)) : 0;
   let fill = color ?? 'var(--coral)';
   if (!color) {
     if (pct >= 100) fill = 'var(--rose)';

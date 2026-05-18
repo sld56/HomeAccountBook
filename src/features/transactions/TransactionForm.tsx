@@ -43,9 +43,32 @@ export function TransactionForm({ open, onClose, initial }: Props) {
   const [date, setDate] = useState(initial?.date ?? todayStr());
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Draft 복원
+  // 편집 대상이 바뀌거나 새 추가 모달이 열리면 상태 초기화 (이전 값 잔존 방지)
   useEffect(() => {
-    if (!open || initial) return;
+    if (!open) return;
+    if (initial) {
+      // 편집 모드 — initial 값으로 동기화
+      setKind(initial.kind);
+      setAmount(String(initial.amount));
+      setCat(initial.cat);
+      setTitle(initial.title);
+      setMemo(initial.memo ?? '');
+      setMember(initial.member);
+      setAccount(initial.account);
+      setDate(initial.date);
+      setErrors({});
+      return;
+    }
+    // 새 추가 — 기본값으로 리셋 후 draft 복원 시도
+    setKind('out');
+    setAmount('');
+    setCat('');
+    setTitle('');
+    setMemo('');
+    setMember(members[0]?.id ?? '');
+    setAccount(accounts[0]?.id ?? '');
+    setDate(todayStr());
+    setErrors({});
     try {
       const raw = sessionStorage.getItem(DRAFT_KEY);
       if (raw) {
@@ -62,7 +85,10 @@ export function TransactionForm({ open, onClose, initial }: Props) {
     } catch {
       /* ignore */
     }
-  }, [open, initial, members, accounts]);
+    // members/accounts는 의존성에서 제외 — 모달 열린 동안 변하면
+    // 폼이 초기화되어 입력 내용이 사라지는 부작용을 막음.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initial]);
 
   // Draft 자동 저장
   useEffect(() => {

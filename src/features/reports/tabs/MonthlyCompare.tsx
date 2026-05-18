@@ -27,10 +27,21 @@ export function MonthlyCompare() {
   const B = byYm[b];
   if (!A || !B) return null;
 
-  const delta = (x: number, y: number) => (y === 0 ? 0 : Math.round(((x - y) / y) * 100));
+  // y=0이면 비율 계산 무의미 → null. y>0이면 ±%.
+  const delta = (x: number, y: number): number | null =>
+    y === 0 ? (x === 0 ? 0 : null) : Math.round(((x - y) / y) * 100);
   const dInc = delta(B.income, A.income);
   const dExp = delta(B.expense, A.expense);
   const dNet = delta(B.income - B.expense, A.income - A.expense);
+
+  const deltaTrend = (d: number | null, refLabel: string) => {
+    if (d === null) return { direction: 'flat' as const, text: `vs ${refLabel} 비교 불가` };
+    if (d === 0) return { direction: 'flat' as const, text: `vs ${refLabel} 동일` };
+    return {
+      direction: d > 0 ? ('up' as const) : ('down' as const),
+      text: `vs ${refLabel} ${d > 0 ? '+' : ''}${d}%`,
+    };
+  };
 
   return (
     <div className="stack">
@@ -57,17 +68,17 @@ export function MonthlyCompare() {
         <KpiCard
           eyebrow={`수입 (${fmt.ymLabel(b)})`}
           value={fmt.money(B.income, currency)}
-          trend={{ direction: dInc >= 0 ? 'up' : 'down', text: `vs ${fmt.ymLabel(a)} ${dInc >= 0 ? '+' : ''}${dInc}%` }}
+          trend={deltaTrend(dInc, fmt.ymLabel(a))}
         />
         <KpiCard
           eyebrow={`지출 (${fmt.ymLabel(b)})`}
           value={fmt.money(B.expense, currency)}
-          trend={{ direction: dExp >= 0 ? 'up' : 'down', text: `vs ${fmt.ymLabel(a)} ${dExp >= 0 ? '+' : ''}${dExp}%` }}
+          trend={deltaTrend(dExp, fmt.ymLabel(a))}
         />
         <KpiCard
           eyebrow={`순저축 (${fmt.ymLabel(b)})`}
           value={fmt.money(B.income - B.expense, currency)}
-          trend={{ direction: dNet >= 0 ? 'up' : 'down', text: `vs ${fmt.ymLabel(a)} ${dNet >= 0 ? '+' : ''}${dNet}%` }}
+          trend={deltaTrend(dNet, fmt.ymLabel(a))}
         />
       </div>
 
@@ -161,10 +172,21 @@ export function MonthlyCompare() {
                   className="meta"
                   style={{
                     marginTop: 6,
-                    color: d >= 0 ? 'var(--coral-2)' : 'var(--sage-2)',
+                    color:
+                      d === null
+                        ? 'var(--ink-3)'
+                        : d > 0
+                          ? 'var(--coral-2)'
+                          : d < 0
+                            ? 'var(--sage-2)'
+                            : 'var(--ink-3)',
                   }}
                 >
-                  {d >= 0 ? '▲' : '▼'} {Math.abs(d)}%
+                  {d === null
+                    ? '비교 불가'
+                    : d === 0
+                      ? '동일'
+                      : `${d > 0 ? '▲' : '▼'} ${Math.abs(d)}%`}
                 </div>
               </div>
             );

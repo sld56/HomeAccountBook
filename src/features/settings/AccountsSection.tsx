@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAccounts } from '@/stores/accountStore';
 import { useSettings } from '@/stores/settingsStore';
 import { fmt } from '@/lib/format';
@@ -99,19 +99,17 @@ function AccountEditorModal({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  // editing 바뀌면 폼 초기화
-  useState(() => {
-    if (open) {
-      setLabel(editing?.label ?? '');
-      setType(editing?.type ?? '입출금');
-      setBank(editing?.bank ?? '');
-      setBalance(String(editing?.balance ?? 0));
-      setColor(editing?.color ?? '#444');
-      setCreditLimit(String(editing?.limit ?? ''));
-      setErr(null);
-    }
-    return null;
-  });
+  // 모달이 열리거나 편집 대상이 바뀌면 폼 초기화 (이전 값 잔존 방지)
+  useEffect(() => {
+    if (!open) return;
+    setLabel(editing?.label ?? '');
+    setType(editing?.type ?? '입출금');
+    setBank(editing?.bank ?? '');
+    setBalance(String(editing?.balance ?? 0));
+    setColor(editing?.color ?? '#444');
+    setCreditLimit(String(editing?.limit ?? ''));
+    setErr(null);
+  }, [open, editing]);
 
   if (!open) return null;
 

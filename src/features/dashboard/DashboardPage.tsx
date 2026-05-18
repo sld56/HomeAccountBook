@@ -35,8 +35,10 @@ function useMonthData() {
   }, [transactions, selectedMember, currentYm]);
 }
 
-function pctDelta(curr: number, prev: number): number {
-  if (prev === 0) return curr === 0 ? 0 : 100;
+// 전월 대비 변화율. 전월값이 0이면 비율 계산이 의미 없어 null 반환
+// (호출부에서 "신규" 같은 표시로 분기). curr·prev 모두 0이면 0% (변화 없음).
+function pctDelta(curr: number, prev: number): number | null {
+  if (prev === 0) return curr === 0 ? 0 : null;
   return Math.round(((curr - prev) / prev) * 100);
 }
 
@@ -62,8 +64,15 @@ function CardGridVariant() {
   const monthlyData = last6.map((m) => ({ ym: m.ym, income: m.income, expense: m.expense }));
 
   const prevMonth = last6[last6.length - 2];
-  const expenseDelta = prevMonth ? pctDelta(summary.expense, prevMonth.expense) : 0;
-  const incomeDelta = prevMonth ? pctDelta(summary.income, prevMonth.income) : 0;
+  const expenseDelta = prevMonth ? pctDelta(summary.expense, prevMonth.expense) : null;
+  const incomeDelta = prevMonth ? pctDelta(summary.income, prevMonth.income) : null;
+
+  // null이면 "신규" (전월 데이터 없음), 0이면 변화 없음, 그 외엔 ±N%
+  const deltaTrend = (d: number | null): { direction: 'up' | 'down' | 'flat'; text: string } => {
+    if (d === null) return { direction: 'flat', text: '신규 기록' };
+    if (d === 0) return { direction: 'flat', text: '전월과 동일' };
+    return { direction: d > 0 ? 'up' : 'down', text: `전월 대비 ${d > 0 ? '+' : ''}${d}%` };
+  };
 
   return (
     <div className="stack">
@@ -73,20 +82,14 @@ function CardGridVariant() {
           value={fmt.money(summary.income, currency)}
           icon="💰"
           accent="var(--sage-soft)"
-          trend={{
-            direction: incomeDelta > 0 ? 'up' : incomeDelta < 0 ? 'down' : 'flat',
-            text: `전월 대비 ${incomeDelta >= 0 ? '+' : ''}${incomeDelta}%`,
-          }}
+          trend={deltaTrend(incomeDelta)}
         />
         <KpiCard
           eyebrow="이번 달 지출"
           value={fmt.money(summary.expense, currency)}
           icon="🛍️"
           accent="var(--coral-soft)"
-          trend={{
-            direction: expenseDelta > 0 ? 'up' : expenseDelta < 0 ? 'down' : 'flat',
-            text: `전월 대비 ${expenseDelta >= 0 ? '+' : ''}${expenseDelta}%`,
-          }}
+          trend={deltaTrend(expenseDelta)}
         />
         <KpiCard
           eyebrow="남은 예산"
@@ -140,62 +143,70 @@ function CardGridVariant() {
         </Card>
         <Card>
           <h3 className="section-title">다가오는 결제</h3>
-          <div className="stack" style={{ gap: 10 }}>
-            {upcoming.map((u) => {
-              const cat = CATEGORIES[u.cat];
-              return (
-                <div key={u.id} className="between">
-                  <div className="row" style={{ gap: 10 }}>
-                    <span
-                      style={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: 10,
-                        background: cat.color,
-                        color: '#fff',
-                        display: 'grid',
-                        placeItems: 'center',
-                        fontSize: 16,
-                      }}
-                    >
-                      {cat.emoji}
-                    </span>
-                    <div>
-                      <div style={{ fontWeight: 600 }}>{u.label}</div>
-                      <div className="meta">
-                        {fmt.date(u.date)} {u.autopay && '· 자동이체'}
+          {upcoming.length === 0 ? (
+            <p className="meta muted">예정된 결제가 없어요. 예산 페이지에서 추가해보세요.</p>
+          ) : (
+            <div className="stack" style={{ gap: 10 }}>
+              {upcoming.map((u) => {
+                const cat = CATEGORIES[u.cat];
+                return (
+                  <div key={u.id} className="between">
+                    <div className="row" style={{ gap: 10 }}>
+                      <span
+                        style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: 10,
+                          background: cat.color,
+                          color: '#fff',
+                          display: 'grid',
+                          placeItems: 'center',
+                          fontSize: 16,
+                        }}
+                      >
+                        {cat.emoji}
+                      </span>
+                      <div>
+                        <div style={{ fontWeight: 600 }}>{u.label}</div>
+                        <div className="meta">
+                          {fmt.date(u.date)} {u.autopay && '· 자동이체'}
+                        </div>
                       </div>
                     </div>
+                    <div className="num" style={{ fontWeight: 700 }}>
+                      {fmt.money(u.amount, currency)}
+                    </div>
                   </div>
-                  <div className="num" style={{ fontWeight: 700 }}>
-                    {fmt.money(u.amount, currency)}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </Card>
         <Card>
           <h3 className="section-title">계좌 잔액</h3>
-          <div className="stack" style={{ gap: 10 }}>
-            {accounts.map((a) => (
-              <div key={a.id} className="between">
-                <div>
-                  <div style={{ fontWeight: 600 }}>{a.label}</div>
-                  <div className="meta">{a.type}</div>
+          {accounts.length === 0 ? (
+            <p className="meta muted">등록된 계좌가 없어요. 설정에서 추가해보세요.</p>
+          ) : (
+            <div className="stack" style={{ gap: 10 }}>
+              {accounts.map((a) => (
+                <div key={a.id} className="between">
+                  <div>
+                    <div style={{ fontWeight: 600 }}>{a.label}</div>
+                    <div className="meta">{a.type}</div>
+                  </div>
+                  <div
+                    className="num"
+                    style={{
+                      fontWeight: 700,
+                      color: a.balance < 0 ? 'var(--coral-2)' : 'var(--ink)',
+                    }}
+                  >
+                    {fmt.money(a.balance, currency)}
+                  </div>
                 </div>
-                <div
-                  className="num"
-                  style={{
-                    fontWeight: 700,
-                    color: a.balance < 0 ? 'var(--coral-2)' : 'var(--ink)',
-                  }}
-                >
-                  {fmt.money(a.balance, currency)}
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </Card>
       </div>
     </div>
@@ -257,6 +268,9 @@ function BigNumberVariant() {
       <div className="grid cols-2">
         <Card>
           <h3 className="section-title">가장 많이 쓴 카테고리</h3>
+          {cats.length === 0 ? (
+            <p className="meta muted">이번 달 지출이 아직 없어요.</p>
+          ) : (
           <div className="stack" style={{ gap: 10 }}>
             {cats.slice(0, 5).map((c) => {
               const cat = CATEGORIES[c.cat];
@@ -287,6 +301,7 @@ function BigNumberVariant() {
               );
             })}
           </div>
+          )}
         </Card>
         <Card>
           <h3 className="section-title">최근 6개월</h3>

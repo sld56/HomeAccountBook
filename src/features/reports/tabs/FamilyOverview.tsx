@@ -45,7 +45,9 @@ export function FamilyOverview() {
           const ratio = totalExpense > 0 ? expense / totalExpense : 0;
           const series = last6.map((mo) => mo.byMember[m.id] ?? 0);
           const prev = lastMonth?.byMember[m.id] ?? 0;
-          const delta = prev > 0 ? Math.round(((expense - prev) / prev) * 100) : 0;
+          // prev=0: 비교 무의미 → null. prev>0: 정상 비율.
+          const delta: number | null =
+            prev > 0 ? Math.round(((expense - prev) / prev) * 100) : expense === 0 ? 0 : null;
           const myCats = byCategory(myTxs, 'out');
           const topCat = myCats[0];
           return (
@@ -60,8 +62,24 @@ export function FamilyOverview() {
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <div className="big-money num">{fmt.money(expense, currency)}</div>
-                  <div className="meta" style={{ color: delta >= 0 ? 'var(--coral-2)' : 'var(--sage-2)' }}>
-                    전월 {delta >= 0 ? '▲' : '▼'} {Math.abs(delta)}%
+                  <div
+                    className="meta"
+                    style={{
+                      color:
+                        delta === null
+                          ? 'var(--ink-3)'
+                          : delta > 0
+                            ? 'var(--coral-2)'
+                            : delta < 0
+                              ? 'var(--sage-2)'
+                              : 'var(--ink-3)',
+                    }}
+                  >
+                    {delta === null
+                      ? '전월 데이터 없음'
+                      : delta === 0
+                        ? '전월과 동일'
+                        : `전월 ${delta > 0 ? '▲' : '▼'} ${Math.abs(delta)}%`}
                   </div>
                 </div>
               </div>

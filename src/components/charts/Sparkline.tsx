@@ -14,6 +14,25 @@ export function Sparkline({
   ariaLabel = '추이 스파크라인',
 }: Props) {
   if (!values.length) return null;
+  const allZero = values.every((v) => v === 0);
+  if (allZero) {
+    return (
+      <div
+        style={{
+          width,
+          height,
+          display: 'grid',
+          placeItems: 'center',
+          fontSize: 'var(--fs-xs)',
+          color: 'var(--ink-3)',
+        }}
+        role="img"
+        aria-label={`${ariaLabel}: 데이터 없음`}
+      >
+        — 거래 없음
+      </div>
+    );
+  }
   const max = Math.max(...values, 1);
   const min = Math.min(...values, 0);
   const range = max - min || 1;
