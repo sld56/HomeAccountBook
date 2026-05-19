@@ -17,6 +17,8 @@ type Props = {
   open: boolean;
   onClose: () => void;
   initial?: Transaction;
+  /** 새 거래 추가 시 사용할 기본 날짜 (YYYY-MM-DD). 미지정 시 오늘. */
+  defaultDate?: string;
 };
 
 const todayStr = () => {
@@ -24,7 +26,7 @@ const todayStr = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
-export function TransactionForm({ open, onClose, initial }: Props) {
+export function TransactionForm({ open, onClose, initial, defaultDate }: Props) {
   const members = useMembers((s) => s.members);
   const add = useTransactions((s) => s.add);
   const update = useTransactions((s) => s.update);
@@ -38,7 +40,7 @@ export function TransactionForm({ open, onClose, initial }: Props) {
   const [memo, setMemo] = useState(initial?.memo ?? '');
   const [member, setMember] = useState(initial?.member ?? members[0]?.id ?? '');
   const [account, setAccount] = useState(initial?.account ?? accounts[0]?.id ?? '');
-  const [date, setDate] = useState(initial?.date ?? todayStr());
+  const [date, setDate] = useState(initial?.date ?? defaultDate ?? todayStr());
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // 모달이 열리거나 편집 대상이 바뀔 때마다 상태 초기화. 사용자 의도가
@@ -57,7 +59,7 @@ export function TransactionForm({ open, onClose, initial }: Props) {
       setAccount(initial.account);
       setDate(initial.date);
     } else {
-      // 새 추가 — 모두 기본값으로
+      // 새 추가 — 모두 기본값으로. defaultDate가 있으면 그 날짜 사용.
       setKind('out');
       setAmount('');
       setCat('');
@@ -65,13 +67,13 @@ export function TransactionForm({ open, onClose, initial }: Props) {
       setMemo('');
       setMember(members[0]?.id ?? '');
       setAccount(accounts[0]?.id ?? '');
-      setDate(todayStr());
+      setDate(defaultDate ?? todayStr());
     }
     setErrors({});
     // members/accounts는 의존성에서 제외 — 모달 열린 동안 가족/계좌
     // sync로 바뀌어도 입력 중인 폼이 초기화되지 않도록.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, initial]);
+  }, [open, initial, defaultDate]);
 
   const [busy, setBusy] = useState(false);
 

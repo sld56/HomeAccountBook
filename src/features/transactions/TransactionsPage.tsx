@@ -18,6 +18,23 @@ const todayYM = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 };
 
+// 선택된 ym 안에서 적절한 기본 날짜 계산:
+// - 오늘이 그 월에 속하면 오늘
+// - 다른 월이면 오늘의 일자(day)와 그 월의 마지막 날 중 작은 값
+//   예: 오늘 5/31 + ym=2024-02 → 2024-02-29
+function defaultDateInYM(ym: string): string {
+  const today = new Date();
+  const todayYm = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+  if (ym === todayYm) {
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  }
+  const [y, m] = ym.split('-').map(Number);
+  if (!y || !m) return todayYm;
+  const lastDay = new Date(y, m, 0).getDate();
+  const day = Math.min(today.getDate(), lastDay);
+  return `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
 export function TransactionsPage() {
   const transactions = useTransactions((s) => s.transactions);
   const selectedMember = useMembers((s) => s.selectedMember);
@@ -177,7 +194,11 @@ export function TransactionsPage() {
         ))}
       </div>
 
-      <TransactionForm open={openNew} onClose={() => setOpenNew(false)} />
+      <TransactionForm
+        open={openNew}
+        onClose={() => setOpenNew(false)}
+        defaultDate={defaultDateInYM(ym)}
+      />
       <TransactionForm
         open={editing != null}
         onClose={() => setEditing(null)}
