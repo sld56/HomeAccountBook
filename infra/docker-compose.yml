@@ -124,7 +124,10 @@ services:
       DNS_NODES: "''"
       RLIMIT_NOFILE: 10000
       APP_NAME: realtime
-      SEED_SELF_HOST: "true"
+      # SEED_SELF_HOST가 매 시작마다 'realtime-dev' tenant를 만드는 noise를 줄이려면
+      # false로 두고 마이그레이션 0006이 'realtime' tenant를 idempotent하게 관리.
+      # (마이그레이션 적용 전 깔끔한 첫 설치에서는 true로 잠시 켜 seed → 그 후 false 권장)
+      SEED_SELF_HOST: "false"
       RUN_JANITOR: "true"
 
   edge-functions:
