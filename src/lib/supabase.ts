@@ -38,6 +38,25 @@ export async function callFunction<T = unknown>(
   const { data, error } = await supabase.functions.invoke(name, {
     body: body ?? undefined,
   });
-  if (error) throw error;
+  if (error) {
+    // supabase-js의 FunctionsHttpError는 응답 body를 직접 노출하지 않음.
+    // context.response가 있으면 거기서 JSON.error 필드 추출해 사용자 친화적 메시지로.
+    const ctx = (error as { context?: { response?: Response } }).context;
+    const resp = ctx?.response;
+    if (resp) {
+      try {
+        const cloned = resp.clone();
+        const json = await cloned.json();
+        if (json && typeof json.error === 'string' && json.error) {
+          throw new Error(json.error);
+        }
+      } catch (innerErr) {
+        if (innerErr instanceof Error && innerErr.message && innerErr.message !== error.message) {
+          throw innerErr;
+        }
+      }
+    }
+    throw error;
+  }
   return data as T;
 }

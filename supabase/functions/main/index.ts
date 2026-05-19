@@ -13,6 +13,14 @@ const APP_URL = Deno.env.get('APP_URL') ?? '';
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') ?? '';
 const MAIL_FROM = Deno.env.get('MAIL_FROM') ?? 'noreply@example.com';
 
+// 가족 생성 권한 화이트리스트 (쉼표 구분 이메일).
+// 비어 있으면 누구나 가족 생성 가능 (초기 설정/개발용).
+// 값이 있으면 그 이메일만 createHousehold 통과 — 다른 사용자는 초대 토큰으로만 합류.
+const ALLOWED_OWNER_EMAILS = (Deno.env.get('ALLOWED_OWNER_EMAILS') ?? '')
+  .split(',')
+  .map((e) => e.trim().toLowerCase())
+  .filter(Boolean);
+
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -94,6 +102,18 @@ async function audit(opts: {
 
 async function createHousehold(req: Request): Promise<Response> {
   const user = await getCurrentUser(req);
+
+  // 가족 생성은 화이트리스트에 있는 이메일만 가능. 다른 가입자는 초대 토큰으로만 합류.
+  if (ALLOWED_OWNER_EMAILS.length > 0) {
+    const email = (user.email ?? '').toLowerCase();
+    if (!email || !ALLOWED_OWNER_EMAILS.includes(email)) {
+      throw new HttpError(
+        403,
+        '가족 생성 권한이 없습니다. 이 서비스는 초대받은 가족만 사용할 수 있어요. 가족 운영자에게 초대를 요청해주세요.',
+      );
+    }
+  }
+
   const body = await req.json().catch(() => ({}));
   const name = (body.name ?? '').trim();
   const displayName = (body.display_name ?? '').trim();

@@ -149,6 +149,9 @@ services:
       MAIL_FROM: ${SMTP_ADMIN_EMAIL}
       # 이메일·초대 링크 등 사용자에게 보내는 URL은 외부 도메인
       APP_URL: ${SITE_URL}
+      # 가족 생성 권한 화이트리스트 (쉼표 구분). 비어 있으면 누구나 가능 (초기 설정용).
+      # 운영 중에는 가족 owner 이메일들만 등록 — 외부 가입자가 자기 가족을 못 만들게.
+      ALLOWED_OWNER_EMAILS: ${ALLOWED_OWNER_EMAILS:-}
     command:
       - start
       - --main-service
