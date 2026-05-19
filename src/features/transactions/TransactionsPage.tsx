@@ -83,12 +83,19 @@ export function TransactionsPage() {
           <div className="page-greet">{fmt.ymLabel(ym)} 가족 거래 흐름</div>
         </div>
         <div className="page-actions">
+          {/* type="month"는 브라우저별 캘린더 UX가 달라서 거래 입력 모달의
+              type="date"와 통일. 사용자가 어떤 일자를 골라도 ym(YYYY-MM)만
+              잘라 필터에 사용. */}
           <input
-            type="month"
+            type="date"
             className="input"
-            value={ym}
-            onChange={(e) => setYM(e.target.value)}
-            style={{ width: 160 }}
+            value={`${ym}-01`}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (/^\d{4}-\d{2}-\d{2}$/.test(v)) setYM(v.slice(0, 7));
+            }}
+            style={{ width: 180 }}
+            aria-label="월 선택"
           />
           <Button variant="primary" onClick={() => setOpenNew(true)}>
             + 새 거래 입력
