@@ -63,11 +63,14 @@ services:
       GOTRUE_JWT_ADMIN_ROLES: service_role
       GOTRUE_JWT_AUD: authenticated
       GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
-      GOTRUE_JWT_EXP: 3600
+      # access token TTL — 1시간 너무 짧음. 가족용이라 24시간으로 늘려 매번 매직링크
+      # 재발급 부담 감소. refresh token rotation은 그대로 (보안 유지).
+      GOTRUE_JWT_EXP: 86400
       GOTRUE_JWT_SECRET: ${JWT_SECRET}
       # 이메일 매직 링크 + OTP
       GOTRUE_MAILER_AUTOCONFIRM: "false"
-      GOTRUE_MAILER_OTP_EXP: 300            # 5분
+      # OTP 만료 — 메일 받고 5분 안에 안 누르면 다시 받아야 하는 불편 해소
+      GOTRUE_MAILER_OTP_EXP: 1800           # 30분
       GOTRUE_MAILER_OTP_LENGTH: 6
       GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
       # SMTP (Resend)

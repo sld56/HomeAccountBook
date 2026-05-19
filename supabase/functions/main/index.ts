@@ -202,7 +202,8 @@ async function createInvite(req: Request): Promise<Response> {
   // supabase-js가 Uint8Array를 PostgreSQL bytea로 변환 못 해 JSON으로
   // 직렬화하던 버그 회피 — hex string으로 보내고 컬럼도 text. (0004 마이그레이션 짝)
   const tokenHashHex = Array.from(hashBytes).map((b) => b.toString(16).padStart(2, '0')).join('');
-  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+  // 초대 토큰 만료 7일 (마이그레이션 0007과 짝). 사적 가족 사용엔 24h는 짧음.
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
   const { data: inv, error: invErr } = await service.from('invitations').insert({
     household_id,
@@ -230,7 +231,7 @@ async function createInvite(req: Request): Promise<Response> {
         html: `<div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
           <h2 style="color:#2A2521;">가족 가계부 초대</h2>
           <p>아래 링크를 누르면 가족 가계부에 합류할 수 있습니다.</p>
-          <p>이 링크는 <strong>24시간</strong> 동안만 유효합니다.</p>
+          <p>이 링크는 <strong>7일</strong> 동안만 유효합니다.</p>
           <p><a href="${inviteUrl}" style="display:inline-block;background:#E5765E;color:#fff;padding:12px 24px;border-radius:14px;text-decoration:none;font-weight:600;">초대 수락하기</a></p>
           <p style="color:#9A8F82;font-size:13px;margin-top:24px;">잘못 받으셨다면 이 메일을 무시하시면 됩니다.</p>
         </div>`,
