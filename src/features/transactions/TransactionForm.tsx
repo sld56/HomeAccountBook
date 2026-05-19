@@ -26,6 +26,32 @@ const todayStr = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
+const DRAFT_KEY = 'gagyebu-tx-draft';
+
+type Draft = {
+  kind: TransactionKind;
+  amount: string;
+  cat: CategoryId | '';
+  title: string;
+  memo: string;
+  member: string;
+  account: string;
+  date: string;
+};
+
+function readDraft(): Draft | null {
+  try {
+    const raw = sessionStorage.getItem(DRAFT_KEY);
+    if (!raw) return null;
+    const d = JSON.parse(raw);
+    // 빈 draft (모든 필드 기본값)는 의미 없음 — null 취급
+    if (!d || (!d.amount && !d.title && !d.cat && !d.memo)) return null;
+    return d as Draft;
+  } catch {
+    return null;
+  }
+}
+
 export function TransactionForm({ open, onClose, initial, defaultDate }: Props) {
   const members = useMembers((s) => s.members);
   const add = useTransactions((s) => s.add);
@@ -42,14 +68,16 @@ export function TransactionForm({ open, onClose, initial, defaultDate }: Props) 
   const [account, setAccount] = useState(initial?.account ?? accounts[0]?.id ?? '');
   const [date, setDate] = useState(initial?.date ?? defaultDate ?? todayStr());
   const [errors, setErrors] = useState<Record<string, string>>({});
+  // 새 추가 모드에서 모달이 열리는 순간 draft 존재 여부 스냅샷.
+  // 자동 복원하지 않고 사용자가 "이어쓰기" 클릭해야 적용 → 혼란 방지.
+  const [pendingDraft, setPendingDraft] = useState<Draft | null>(null);
 
-  // 모달이 열리거나 편집 대상이 바뀔 때마다 상태 초기화. 사용자 의도가
-  // 명확한 깨끗한 폼을 위해 draft 자동 복원은 사용하지 않음 (UX 혼란
-  // 방지 — "내가 입력 안 했는데 왜 다 채워져 있지?" 시나리오 차단).
+  // 모달이 열리거나 편집 대상이 바뀔 때마다 상태 초기화. 깨끗한 폼으로 시작하되,
+  // 새 추가 모드에서 직전에 작성하다 만 draft가 있으면 헤더 배너로 알림.
   useEffect(() => {
     if (!open) return;
     if (initial) {
-      // 편집 모드 — initial 값으로 동기화
+      // 편집 모드 — initial 값으로 동기화, draft는 무시
       setKind(initial.kind);
       setAmount(String(initial.amount));
       setCat(initial.cat);
@@ -58,8 +86,9 @@ export function TransactionForm({ open, onClose, initial, defaultDate }: Props) 
       setMember(initial.member);
       setAccount(initial.account);
       setDate(initial.date);
+      setPendingDraft(null);
     } else {
-      // 새 추가 — 모두 기본값으로. defaultDate가 있으면 그 날짜 사용.
+      // 새 추가 — 기본값으로 시작. draft가 있으면 배너로만 알림 (자동 복원 X).
       setKind('out');
       setAmount('');
       setCat('');
@@ -68,12 +97,49 @@ export function TransactionForm({ open, onClose, initial, defaultDate }: Props) 
       setMember(members[0]?.id ?? '');
       setAccount(accounts[0]?.id ?? '');
       setDate(defaultDate ?? todayStr());
+      setPendingDraft(readDraft());
     }
     setErrors({});
     // members/accounts는 의존성에서 제외 — 모달 열린 동안 가족/계좌
     // sync로 바뀌어도 입력 중인 폼이 초기화되지 않도록.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initial, defaultDate]);
+
+  // 새 추가 모드일 때 입력값을 200ms debounce로 sessionStorage에 저장 — 실수로
+  // 닫혀도 다음 진입 시 "이어쓰기" 배너로 복원 가능.
+  useEffect(() => {
+    if (!open || initial) return;
+    const id = setTimeout(() => {
+      try {
+        sessionStorage.setItem(
+          DRAFT_KEY,
+          JSON.stringify({ kind, amount, cat, title, memo, member, account, date }),
+        );
+      } catch {
+        /* 일부 사파리 시크릿 모드는 sessionStorage write 거부 — 무시 */
+      }
+    }, 200);
+    return () => clearTimeout(id);
+  }, [open, initial, kind, amount, cat, title, memo, member, account, date]);
+
+  const restoreDraft = () => {
+    const d = pendingDraft;
+    if (!d) return;
+    setKind(d.kind);
+    setAmount(d.amount);
+    setCat(d.cat);
+    setTitle(d.title);
+    setMemo(d.memo);
+    if (d.member) setMember(d.member);
+    if (d.account) setAccount(d.account);
+    if (d.date) setDate(d.date);
+    setPendingDraft(null);
+  };
+
+  const dismissDraft = () => {
+    sessionStorage.removeItem(DRAFT_KEY);
+    setPendingDraft(null);
+  };
 
   const [busy, setBusy] = useState(false);
 
@@ -101,6 +167,8 @@ export function TransactionForm({ open, onClose, initial, defaultDate }: Props) 
         await update(initial.id, result.data as Partial<Transaction>);
       } else {
         await add(result.data as Omit<Transaction, 'id'>);
+        // 저장 성공한 새 거래의 draft는 정리
+        sessionStorage.removeItem(DRAFT_KEY);
       }
       handleClose();
     } catch (e) {
@@ -133,6 +201,33 @@ export function TransactionForm({ open, onClose, initial, defaultDate }: Props) 
   return (
     <Modal open={open} onClose={handleClose} title={initial ? '거래 수정' : '새 거래 입력'}>
       <div className="stack">
+        {pendingDraft && !initial && (
+          <div
+            className="between"
+            style={{
+              padding: '10px 14px',
+              background: 'var(--amber-soft)',
+              border: '1px solid var(--amber)',
+              borderRadius: 12,
+              fontSize: 'var(--fs-sm)',
+            }}
+          >
+            <span>
+              📝 지난 작성 내역이 있어요
+              {pendingDraft.title && (
+                <strong style={{ marginLeft: 6 }}>"{pendingDraft.title}"</strong>
+              )}
+            </span>
+            <div className="row" style={{ gap: 6 }}>
+              <Button variant="ghost" size="sm" type="button" onClick={dismissDraft}>
+                지우기
+              </Button>
+              <Button variant="primary" size="sm" type="button" onClick={restoreDraft}>
+                이어쓰기
+              </Button>
+            </div>
+          </div>
+        )}
         {/* 종류 토글 */}
         <div role="radiogroup" aria-label="거래 종류" className="row" style={{ gap: 8 }}>
           <Button
